@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index";
 import Studies from "./pages/Studies";
+import CreateStudy from "./pages/CreateStudy";
 import Stimuli from "./pages/Stimuli";
 import Surveys from "./pages/Surveys";
 import Participants from "./pages/Participants";
@@ -23,6 +24,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/studies" element={<Studies />} />
+          <Route path="/studies/new" element={<CreateStudy />} />
           <Route path="/stimuli" element={<Stimuli />} />
           <Route path="/surveys" element={<Surveys />} />
           <Route path="/participants" element={<Participants />} />
