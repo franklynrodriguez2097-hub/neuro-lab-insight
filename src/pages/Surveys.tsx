@@ -217,10 +217,6 @@ function SurveyEditor({ survey, onBack }: { survey: Survey; onBack: () => void }
                             <Input value={q.vasConfig.rightAnchor} onChange={(e) => updateQuestion(q.id, { vasConfig: { ...q.vasConfig!, rightAnchor: e.target.value } })} placeholder="e.g., Extremely" />
                           </div>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Construct Label (VAS)</Label>
-                          <Input value={q.vasConfig.constructLabel} onChange={(e) => updateQuestion(q.id, { vasConfig: { ...q.vasConfig!, constructLabel: e.target.value } })} placeholder="Single construct only" />
-                        </div>
                       </div>
                     )}
 
