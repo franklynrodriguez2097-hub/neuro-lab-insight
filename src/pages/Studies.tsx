@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/StatusBadge";
-import { MOCK_STUDIES, type Study } from "@/data/studies";
+import { MOCK_STUDIES, STUDY_STATUS_OPTIONS, STUDY_OWNERS, type Study } from "@/data/studies";
 import {
   FlaskConical,
   Plus,
@@ -14,20 +14,27 @@ import {
   Users,
   Calendar,
 } from "lucide-react";
-
-const STATUS_FILTERS = ["all", "active", "draft", "completed", "archived"] as const;
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function Studies() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [ownerFilter, setOwnerFilter] = useState<string>("all");
 
   const filtered = MOCK_STUDIES.filter((study) => {
     const matchesSearch =
-      study.name.toLowerCase().includes(search.toLowerCase()) ||
+      study.title.toLowerCase().includes(search.toLowerCase()) ||
+      study.code.toLowerCase().includes(search.toLowerCase()) ||
       study.description.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || study.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesStatus = statusFilter === "all" || study.status === statusFilter;
+    const matchesOwner = ownerFilter === "all" || study.owner === ownerFilter;
+    return matchesSearch && matchesStatus && matchesOwner;
   });
 
   return (
@@ -60,21 +67,30 @@ export default function Studies() {
               className="pl-9"
             />
           </div>
-          <div className="flex gap-1.5 flex-wrap">
-            {STATUS_FILTERS.map((status) => (
-              <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-full capitalize transition-colors ${
-                  statusFilter === status
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                }`}
-              >
-                {status}
-              </button>
-            ))}
-          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-36 h-10">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {STUDY_STATUS_OPTIONS.map((s) => (
+                <SelectItem key={s} value={s} className="capitalize">
+                  {s.replace("_", " ")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+            <SelectTrigger className="w-48 h-10">
+              <SelectValue placeholder="Owner" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All owners</SelectItem>
+              {STUDY_OWNERS.map((o) => (
+                <SelectItem key={o} value={o}>{o}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Studies List */}
@@ -97,50 +113,41 @@ export default function Studies() {
 
 function StudyCard({ study }: { study: Study }) {
   return (
-    <Card className="border border-border hover:border-accent/40 transition-colors group">
-      <CardContent className="p-5">
-        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-          {/* Icon */}
-          <div className="h-11 w-11 rounded-lg bg-primary/5 flex items-center justify-center shrink-0">
-            <FlaskConical className="h-5 w-5 text-primary" />
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 min-w-0 space-y-2">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <h3 className="font-semibold text-sm font-body group-hover:text-primary transition-colors">
-                {study.name}
-              </h3>
-              <StatusBadge status={study.status} className="w-fit">
-                {study.status}
-              </StatusBadge>
+    <Link to={`/studies/${study.id}`}>
+      <Card className="border border-border hover:border-accent/40 transition-colors group cursor-pointer">
+        <CardContent className="p-5">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+            <div className="h-11 w-11 rounded-lg bg-primary/5 flex items-center justify-center shrink-0">
+              <FlaskConical className="h-5 w-5 text-primary" />
             </div>
-
-            <p className="text-xs text-muted-foreground line-clamp-2 max-w-2xl">
-              {study.description}
-            </p>
-
-            {/* Meta */}
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <ClipboardList className="h-3 w-3" />
-                {study.surveysCount} surveys
-              </span>
-              <span className="flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {study.participantsCount} participants
-              </span>
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                {study.conditions.length} conditions
-              </span>
-              <span className="text-muted-foreground/50">
-                Updated {study.updatedAt}
-              </span>
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <h3 className="font-semibold text-sm font-body group-hover:text-primary transition-colors">
+                  {study.title}
+                </h3>
+                <StatusBadge status={study.status} />
+              </div>
+              <p className="text-xs text-muted-foreground/70 font-mono">{study.code}</p>
+              <p className="text-xs text-muted-foreground line-clamp-2 max-w-2xl">
+                {study.description}
+              </p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <ClipboardList className="h-3 w-3" />{study.surveysCount} surveys
+                </span>
+                <span className="flex items-center gap-1">
+                  <Users className="h-3 w-3" />{study.participantsCount} participants
+                </span>
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />{study.conditions.length} conditions
+                </span>
+                <span>v{study.version}</span>
+                <span className="text-muted-foreground/50">{study.owner}</span>
+              </div>
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
