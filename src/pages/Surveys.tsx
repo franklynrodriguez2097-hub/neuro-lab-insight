@@ -137,6 +137,7 @@ function SurveyEditor({ survey, onBack }: { survey: Survey; onBack: () => void }
       {/* Questions */}
       <div className="space-y-3">
         {questions.map((q, index) => {
+          const isExpanded = expandedId === q.id;
           const hasMultiConstruct = q.type === "vas" && checkMultiConstruct(q.prompt);
           const vasErrors = q.type === "vas" ? validateVASQuestion(q) : [];
 
