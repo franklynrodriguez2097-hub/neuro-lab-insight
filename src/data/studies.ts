@@ -1,3 +1,5 @@
+export type StudyStatus = "draft" | "in_review" | "published" | "closed" | "archived";
+
 export interface StudyCondition {
   id: string;
   name: string;
@@ -6,9 +8,16 @@ export interface StudyCondition {
 
 export interface Study {
   id: string;
-  name: string;
+  title: string;
+  code: string;
   description: string;
-  status: "draft" | "active" | "completed" | "archived";
+  objective: string;
+  constructs: string[];
+  owner: string;
+  startDate: string;
+  endDate: string;
+  status: StudyStatus;
+  version: string;
   conditions: StudyCondition[];
   createdAt: string;
   updatedAt: string;
@@ -16,13 +25,36 @@ export interface Study {
   participantsCount: number;
 }
 
+export const STUDY_STATUS_OPTIONS: StudyStatus[] = [
+  "draft",
+  "in_review",
+  "published",
+  "closed",
+  "archived",
+];
+
+export const STUDY_OWNERS = [
+  "Dr. Alejandra Vásquez",
+  "Prof. Carlos Mendoza",
+  "Dr. Laura Sánchez",
+  "Prof. Miguel Torres",
+];
+
 export const MOCK_STUDIES: Study[] = [
   {
     id: "study-1",
-    name: "Packaging Color Perception",
+    title: "Packaging Color Perception",
+    code: "PCP-2026-01",
     description:
       "Evaluates how color variations in product packaging affect consumer perception of quality, freshness, and premium positioning across different product categories.",
-    status: "active",
+    objective:
+      "Determine whether warm vs. cool vs. neutral color palettes significantly shift perceived quality.",
+    constructs: ["Perceived quality", "Freshness", "Premium positioning"],
+    owner: "Dr. Alejandra Vásquez",
+    startDate: "2026-02-10",
+    endDate: "2026-06-30",
+    status: "published",
+    version: "1.2",
     conditions: [
       { id: "c1-1", name: "Warm palette", description: "Red, orange, and yellow tones" },
       { id: "c1-2", name: "Cool palette", description: "Blue, green, and teal tones" },
@@ -35,10 +67,18 @@ export const MOCK_STUDIES: Study[] = [
   },
   {
     id: "study-2",
-    name: "Typography Legibility Study",
+    title: "Typography Legibility Study",
+    code: "TLS-2026-02",
     description:
       "Assesses legibility and perceived professionalism of serif versus sans-serif typefaces in academic and commercial contexts.",
-    status: "active",
+    objective:
+      "Compare serif vs sans-serif readability and professionalism judgments.",
+    constructs: ["Legibility", "Perceived professionalism"],
+    owner: "Prof. Carlos Mendoza",
+    startDate: "2026-01-15",
+    endDate: "2026-05-15",
+    status: "published",
+    version: "1.0",
     conditions: [
       { id: "c2-1", name: "Serif typefaces", description: "Times, Garamond, Baskerville" },
       { id: "c2-2", name: "Sans-serif typefaces", description: "Helvetica, Inter, Arial" },
@@ -50,10 +90,17 @@ export const MOCK_STUDIES: Study[] = [
   },
   {
     id: "study-3",
-    name: "Brand Identity Assessment",
+    title: "Brand Identity Assessment",
+    code: "BIA-2026-03",
     description:
       "Explores how visual brand elements influence trust, familiarity, and purchase intention among university students.",
+    objective: "Map trust and familiarity across established, emerging, and unbranded conditions.",
+    constructs: ["Trust", "Familiarity", "Purchase intention"],
+    owner: "Dr. Laura Sánchez",
+    startDate: "2026-03-20",
+    endDate: "2026-08-20",
     status: "draft",
+    version: "0.1",
     conditions: [
       { id: "c3-1", name: "Established brands", description: "Well-known national brands" },
       { id: "c3-2", name: "Emerging brands", description: "New or local brands" },
@@ -66,10 +113,17 @@ export const MOCK_STUDIES: Study[] = [
   },
   {
     id: "study-4",
-    name: "Sound–Image Congruence",
+    title: "Sound–Image Congruence",
+    code: "SIC-2025-04",
     description:
       "Investigates the effect of auditory stimuli on visual aesthetic judgments for interior design scenes.",
-    status: "completed",
+    objective: "Test whether congruent audio enhances aesthetic ratings of interior design stimuli.",
+    constructs: ["Aesthetic judgment", "Audio-visual congruence"],
+    owner: "Prof. Miguel Torres",
+    startDate: "2025-09-05",
+    endDate: "2026-01-30",
+    status: "closed",
+    version: "2.0",
     conditions: [
       { id: "c4-1", name: "Congruent audio", description: "Audio matches visual mood" },
       { id: "c4-2", name: "Incongruent audio", description: "Audio contradicts visual mood" },
@@ -79,5 +133,26 @@ export const MOCK_STUDIES: Study[] = [
     updatedAt: "2026-01-30",
     surveysCount: 6,
     participantsCount: 64,
+  },
+  {
+    id: "study-5",
+    title: "Sustainable Packaging Perception",
+    code: "SPP-2026-05",
+    description: "Evaluates how eco-friendly packaging design affects willingness to pay and perceived brand responsibility.",
+    objective: "Compare perceived brand responsibility across sustainable vs traditional packaging.",
+    constructs: ["Willingness to pay", "Brand responsibility"],
+    owner: "Dr. Alejandra Vásquez",
+    startDate: "2026-04-01",
+    endDate: "2026-09-01",
+    status: "in_review",
+    version: "0.3",
+    conditions: [
+      { id: "c5-1", name: "Eco-friendly packaging", description: "Recycled materials, earth tones" },
+      { id: "c5-2", name: "Traditional packaging", description: "Standard commercial packaging" },
+    ],
+    createdAt: "2026-04-01",
+    updatedAt: "2026-04-10",
+    surveysCount: 2,
+    participantsCount: 0,
   },
 ];
