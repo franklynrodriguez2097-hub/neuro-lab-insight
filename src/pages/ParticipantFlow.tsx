@@ -9,7 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { VASScale } from "@/components/VASScale";
 import { MOCK_SURVEYS } from "@/data/surveys";
 import { FlaskConical, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
-import type { SurveyQuestion, ChoiceOption } from "@/data/surveys";
+import type { SurveyQuestion } from "@/data/surveys";
 
 type FlowStep =
   | "welcome"

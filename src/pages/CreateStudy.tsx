@@ -23,9 +23,8 @@ interface ConditionDraft {
   description: string;
 }
 
-let counter = 0;
 const newCondition = (): ConditionDraft => ({
-  id: `new-${++counter}`,
+  id: crypto.randomUUID(),
   name: "",
   description: "",
 });
