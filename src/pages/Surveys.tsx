@@ -14,9 +14,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { StatusBadge } from "@/components/StatusBadge";
-import { MOCK_SURVEYS, QUESTION_TYPE_LABELS, checkMultiConstruct, type SurveyQuestion, type QuestionType, type Survey } from "@/data/surveys";
+import { MOCK_SURVEYS, QUESTION_TYPE_LABELS, checkMultiConstruct, validateVASQuestion, type SurveyQuestion, type QuestionType, type Survey } from "@/data/surveys";
 import { MOCK_STUDIES } from "@/data/studies";
-import { Plus, Trash2, AlertTriangle, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Surveys() {
@@ -86,7 +86,7 @@ function SurveyEditor({ survey, onBack }: { survey: Survey; onBack: () => void }
       order: questions.length + 1,
       linkedStimulusId: null,
       internalNote: "",
-      ...(type === "vas" ? { vasConfig: { leftAnchor: "", rightAnchor: "", constructLabel: "" } } : {}),
+      ...(type === "vas" ? { vasConfig: { leftAnchor: "", rightAnchor: "" } } : {}),
       ...(type === "single_choice" || type === "multiple_choice" ? { choices: [{ id: "opt-1", label: "" }] } : {}),
     };
     setQuestions((prev) => [...prev, newQ]);
@@ -119,7 +119,17 @@ function SurveyEditor({ survey, onBack }: { survey: Survey; onBack: () => void }
           <h2 className="text-xl font-heading">{survey.title}</h2>
           <p className="text-xs text-muted-foreground">{survey.description}</p>
         </div>
-        <Button onClick={() => { toast.success("Survey saved (mock)."); }} size="sm">
+        <Button onClick={() => {
+          // Validate VAS questions before saving
+          const vasErrors = questions
+            .filter((q) => q.type === "vas")
+            .flatMap((q) => validateVASQuestion(q));
+          if (vasErrors.length > 0) {
+            toast.error(vasErrors[0]);
+            return;
+          }
+          toast.success("Survey saved (mock).");
+        }} size="sm">
           Save Survey
         </Button>
       </div>
@@ -127,8 +137,8 @@ function SurveyEditor({ survey, onBack }: { survey: Survey; onBack: () => void }
       {/* Questions */}
       <div className="space-y-3">
         {questions.map((q, index) => {
-          const isExpanded = expandedId === q.id;
           const hasMultiConstruct = q.type === "vas" && checkMultiConstruct(q.prompt);
+          const vasErrors = q.type === "vas" ? validateVASQuestion(q) : [];
 
           return (
             <Card key={q.id} className={`border ${hasMultiConstruct ? "border-highlight/50" : "border-border"}`}>

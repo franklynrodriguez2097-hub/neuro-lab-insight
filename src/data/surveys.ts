@@ -3,7 +3,6 @@ export type QuestionType = "vas" | "open_ended" | "single_choice" | "multiple_ch
 export interface VASConfig {
   leftAnchor: string;
   rightAnchor: string;
-  constructLabel: string;
 }
 
 export interface ChoiceOption {
@@ -43,15 +42,26 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   multiple_choice: "Multiple Choice",
 };
 
-// Multi-construct warning patterns
-export const MULTI_CONSTRUCT_PATTERNS = [
-  /\band\b/i,
-  /\by\b/i,  // Spanish "and"
-  /,\s*\w+/,
+// Multi-construct warning — keyword-based, not simple regex
+// Only flags when construct-combining conjunctions appear between adjectives/nouns
+const MULTI_CONSTRUCT_KEYWORDS = [
+  /\b(?:attractive|trustworthy|elegant|modern|professional|reliable|appealing|innovative|premium|luxurious|natural|fresh)\s+(?:and|y|&)\s+(?:attractive|trustworthy|elegant|modern|professional|reliable|appealing|innovative|premium|luxurious|natural|fresh)\b/i,
+  /\bwould\s+buy\s+and\s+like\b/i,
+  /\b(?:like|prefer|trust|buy)\s+and\s+(?:like|prefer|trust|buy)\b/i,
 ];
 
 export function checkMultiConstruct(prompt: string): boolean {
-  return MULTI_CONSTRUCT_PATTERNS.some((pattern) => pattern.test(prompt));
+  return MULTI_CONSTRUCT_KEYWORDS.some((pattern) => pattern.test(prompt));
+}
+
+export function validateVASQuestion(q: SurveyQuestion): string[] {
+  const errors: string[] = [];
+  if (q.type !== "vas") return errors;
+  if (!q.vasConfig?.leftAnchor?.trim()) errors.push("Left anchor is required for VAS questions.");
+  if (!q.vasConfig?.rightAnchor?.trim()) errors.push("Right anchor is required for VAS questions.");
+  if (!q.constructLabel?.trim()) errors.push("Construct label is required for VAS questions.");
+  if (checkMultiConstruct(q.prompt)) errors.push("This prompt may measure multiple constructs. Each VAS should assess a single dimension.");
+  return errors;
 }
 
 export const MOCK_SURVEYS: Survey[] = [
@@ -77,7 +87,6 @@ export const MOCK_SURVEYS: Survey[] = [
         vasConfig: {
           leftAnchor: "Very low quality",
           rightAnchor: "Very high quality",
-          constructLabel: "Perceived quality",
         },
       },
       {
@@ -93,7 +102,6 @@ export const MOCK_SURVEYS: Survey[] = [
         vasConfig: {
           leftAnchor: "Not fresh at all",
           rightAnchor: "Extremely fresh",
-          constructLabel: "Freshness",
         },
       },
       {
@@ -176,7 +184,6 @@ export const MOCK_SURVEYS: Survey[] = [
         vasConfig: {
           leftAnchor: "Very difficult to read",
           rightAnchor: "Very easy to read",
-          constructLabel: "Legibility",
         },
       },
     ],
