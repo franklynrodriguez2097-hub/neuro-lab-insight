@@ -37,8 +37,8 @@ export default function Analytics() {
     : 0;
 
   // VAS averages by question
-  const vasQuestions = surveys.flatMap((s) => s.questions).filter((q) => q.type === "vas");
   const vasAverages = useMemo(() => {
+    const vasQuestions = surveys.flatMap((s) => s.questions).filter((q) => q.type === "vas");
     return vasQuestions.map((q) => {
       const values = completedSessions
         .flatMap((s) => s.responses)
@@ -51,7 +51,7 @@ export default function Analytics() {
         n: values.length,
       };
     });
-  }, [studyId]);
+  }, [surveys, completedSessions]);
 
   // VAS by condition
   const conditionComparison = useMemo(() => {
@@ -70,7 +70,7 @@ export default function Analytics() {
         color: CHART_COLORS[ci % CHART_COLORS.length],
       };
     });
-  }, [studyId]);
+  }, [study, completedSessions]);
 
   // Open-ended responses
   const openEndedResponses = useMemo(() => {
@@ -84,7 +84,7 @@ export default function Analytics() {
             text: r.textValue!,
           }))
       );
-  }, [studyId]);
+  }, [completedSessions]);
 
   return (
     <AppLayout>
