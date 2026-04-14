@@ -6,6 +6,12 @@ export interface StudyCondition {
   description: string;
 }
 
+export interface StudyFactor {
+  id: string;
+  name: string;
+  levels: string[];
+}
+
 export interface Study {
   id: string;
   title: string;
@@ -13,6 +19,8 @@ export interface Study {
   description: string;
   objective: string;
   constructs: string[];
+  factors: StudyFactor[];
+  attributes: string[];
   owner: string;
   startDate: string;
   endDate: string;
@@ -40,6 +48,10 @@ export const STUDY_OWNERS = [
   "Prof. Miguel Torres",
 ];
 
+export const MAX_FACTORS = 8;
+export const MIN_ATTRIBUTES = 2;
+export const MAX_ATTRIBUTES = 8;
+
 export const MOCK_STUDIES: Study[] = [
   {
     id: "study-1",
@@ -50,6 +62,11 @@ export const MOCK_STUDIES: Study[] = [
     objective:
       "Determine whether warm vs. cool vs. neutral color palettes significantly shift perceived quality.",
     constructs: ["Perceived quality", "Freshness", "Premium positioning"],
+    factors: [
+      { id: "f1-1", name: "Color palette", levels: ["Warm", "Cool", "Neutral"] },
+      { id: "f1-2", name: "Product category", levels: ["Cereal", "Juice"] },
+    ],
+    attributes: ["Perceived quality", "Freshness", "Premium positioning"],
     owner: "Dr. Alejandra Vásquez",
     startDate: "2026-02-10",
     endDate: "2026-06-30",
@@ -74,6 +91,10 @@ export const MOCK_STUDIES: Study[] = [
     objective:
       "Compare serif vs sans-serif readability and professionalism judgments.",
     constructs: ["Legibility", "Perceived professionalism"],
+    factors: [
+      { id: "f2-1", name: "Typeface category", levels: ["Serif", "Sans-serif"] },
+    ],
+    attributes: ["Legibility", "Perceived professionalism"],
     owner: "Prof. Carlos Mendoza",
     startDate: "2026-01-15",
     endDate: "2026-05-15",
@@ -96,6 +117,10 @@ export const MOCK_STUDIES: Study[] = [
       "Explores how visual brand elements influence trust, familiarity, and purchase intention among university students.",
     objective: "Map trust and familiarity across established, emerging, and unbranded conditions.",
     constructs: ["Trust", "Familiarity", "Purchase intention"],
+    factors: [
+      { id: "f3-1", name: "Brand status", levels: ["Established", "Emerging", "Unbranded"] },
+    ],
+    attributes: ["Trust", "Familiarity", "Purchase intention"],
     owner: "Dr. Laura Sánchez",
     startDate: "2026-03-20",
     endDate: "2026-08-20",
@@ -119,6 +144,10 @@ export const MOCK_STUDIES: Study[] = [
       "Investigates the effect of auditory stimuli on visual aesthetic judgments for interior design scenes.",
     objective: "Test whether congruent audio enhances aesthetic ratings of interior design stimuli.",
     constructs: ["Aesthetic judgment", "Audio-visual congruence"],
+    factors: [
+      { id: "f4-1", name: "Audio condition", levels: ["Congruent", "Incongruent", "Silent"] },
+    ],
+    attributes: ["Aesthetic judgment", "Audio-visual congruence"],
     owner: "Prof. Miguel Torres",
     startDate: "2025-09-05",
     endDate: "2026-01-30",
@@ -141,6 +170,10 @@ export const MOCK_STUDIES: Study[] = [
     description: "Evaluates how eco-friendly packaging design affects willingness to pay and perceived brand responsibility.",
     objective: "Compare perceived brand responsibility across sustainable vs traditional packaging.",
     constructs: ["Willingness to pay", "Brand responsibility"],
+    factors: [
+      { id: "f5-1", name: "Packaging type", levels: ["Eco-friendly", "Traditional"] },
+    ],
+    attributes: ["Willingness to pay", "Brand responsibility"],
     owner: "Dr. Alejandra Vásquez",
     startDate: "2026-04-01",
     endDate: "2026-09-01",
