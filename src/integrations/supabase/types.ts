@@ -351,11 +351,13 @@ export type Database = {
       }
       studies: {
         Row: {
+          attributes: string[]
           code: string
           constructs: string[] | null
           created_at: string
           description: string | null
           end_date: string | null
+          factors: Json
           id: string
           objective: string | null
           owner_id: string | null
@@ -367,11 +369,13 @@ export type Database = {
           version: string
         }
         Insert: {
+          attributes?: string[]
           code: string
           constructs?: string[] | null
           created_at?: string
           description?: string | null
           end_date?: string | null
+          factors?: Json
           id?: string
           objective?: string | null
           owner_id?: string | null
@@ -383,11 +387,13 @@ export type Database = {
           version?: string
         }
         Update: {
+          attributes?: string[]
           code?: string
           constructs?: string[] | null
           created_at?: string
           description?: string | null
           end_date?: string | null
+          factors?: Json
           id?: string
           objective?: string | null
           owner_id?: string | null
