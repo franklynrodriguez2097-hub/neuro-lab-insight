@@ -27,7 +27,7 @@ export function mapStudyRow(
     objective: row.objective ?? "",
     constructs: row.constructs ?? [],
     factors,
-    attributes: (row as any).attributes ?? [],
+    attributes: row.attributes ?? [],
     owner: row.owner_name ?? "",
     startDate: row.start_date ?? "",
     endDate: row.end_date ?? "",
