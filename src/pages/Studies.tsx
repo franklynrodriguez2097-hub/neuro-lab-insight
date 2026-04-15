@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/StatusBadge";
-import { MOCK_STUDIES, STUDY_STATUS_OPTIONS, STUDY_OWNERS, type Study } from "@/data/studies";
+import { STUDY_STATUS_OPTIONS, type Study } from "@/data/studies";
+import { useStudies } from "@/hooks/useStudies";
 import {
   FlaskConical,
   Plus,
@@ -13,6 +14,7 @@ import {
   ClipboardList,
   Users,
   Calendar,
+  Loader2,
 } from "lucide-react";
 import {
   Select,
@@ -23,11 +25,15 @@ import {
 } from "@/components/ui/select";
 
 export default function Studies() {
+  const { data: studies = [], isLoading } = useStudies();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
 
-  const filtered = MOCK_STUDIES.filter((study) => {
+  // Derive unique owners from loaded data
+  const owners = [...new Set(studies.map((s) => s.owner).filter(Boolean))];
+
+  const filtered = studies.filter((study) => {
     const matchesSearch =
       study.title.toLowerCase().includes(search.toLowerCase()) ||
       study.code.toLowerCase().includes(search.toLowerCase()) ||
@@ -86,7 +92,7 @@ export default function Studies() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All owners</SelectItem>
-              {STUDY_OWNERS.map((o) => (
+              {owners.map((o) => (
                 <SelectItem key={o} value={o}>{o}</SelectItem>
               ))}
             </SelectContent>
@@ -94,7 +100,11 @@ export default function Studies() {
         </div>
 
         {/* Studies List */}
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center py-16">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <FlaskConical className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
             <p className="text-muted-foreground">No studies found.</p>
