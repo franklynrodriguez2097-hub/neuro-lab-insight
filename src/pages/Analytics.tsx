@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MOCK_STUDIES } from "@/data/studies";
@@ -26,7 +27,9 @@ import { Users, CheckCircle2, Clock, MessageSquare } from "lucide-react";
 const CHART_COLORS = ["hsl(219, 100%, 18%)", "hsl(42, 29%, 41%)", "hsl(25, 90%, 55%)", "hsl(220, 10%, 46%)"];
 
 export default function Analytics() {
-  const [studyId, setStudyId] = useState("study-1");
+  const [searchParams] = useSearchParams();
+  const initialStudyId = searchParams.get("studyId") || "study-1";
+  const [studyId, setStudyId] = useState(initialStudyId);
   const study = MOCK_STUDIES.find((s) => s.id === studyId)!;
   const sessions = MOCK_SESSIONS.filter((s) => s.studyId === studyId);
   const surveys = MOCK_SURVEYS.filter((s) => s.studyId === studyId);
