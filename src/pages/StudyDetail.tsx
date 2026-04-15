@@ -4,11 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadge";
 import { SectionHeader } from "@/components/SectionHeader";
-import { InfoTooltip } from "@/components/InfoTooltip";
-import { MOCK_STUDIES } from "@/data/studies";
-import { MOCK_STIMULI } from "@/data/stimuli";
-import { MOCK_SURVEYS } from "@/data/surveys";
-import { MOCK_SESSIONS } from "@/data/participants";
+import { useStudy, useSurveysByStudy, useStimuliByStudy, useSessionsByStudy } from "@/hooks/useStudies";
 import {
   ArrowLeft,
   Edit,
@@ -20,13 +16,27 @@ import {
   Layers,
   Target,
   Box,
+  Loader2,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 export default function StudyDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const study = MOCK_STUDIES.find((s) => s.id === id);
+  const { data: study, isLoading } = useStudy(id);
+  const { data: surveys = [] } = useSurveysByStudy(id);
+  const { data: stimuli = [] } = useStimuliByStudy(id);
+  const { data: sessions = [] } = useSessionsByStudy(id);
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   if (!study) {
     return (
@@ -39,11 +49,6 @@ export default function StudyDetail() {
     );
   }
 
-  const stimuli = MOCK_STIMULI.filter((s) => s.studyId === study.id);
-  const surveys = MOCK_SURVEYS.filter((s) => s.studyId === study.id);
-  const sessions = MOCK_SESSIONS.filter((s) => s.studyId === study.id);
-
-  // Generate variant descriptions from factors
   const variantCount = study.factors.length > 0
     ? study.factors.reduce((acc, f) => acc * f.levels.length, 1)
     : study.conditions.length;
@@ -69,7 +74,7 @@ export default function StudyDetail() {
           </Button>
         </div>
 
-        {/* Quick Actions — Primary workflow CTAs */}
+        {/* Quick Actions */}
         <Card className="border-primary/20 bg-primary/[0.02]">
           <CardContent className="py-5">
             <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-4">Research Workflow</p>
@@ -222,12 +227,12 @@ export default function StudyDetail() {
         <div className="space-y-4">
           <SectionHeader
             title="Stimulus Variants"
-            tooltip="A variant is one specific combination of factor levels, such as green + rounded triangle + font A. Participants evaluate variants, and results compare perceptions across them."
+            tooltip="A variant is one specific combination of factor levels. Participants evaluate variants, and results compare perceptions across them."
             description="Each variant represents a unique combination of factor levels that participants will evaluate."
             counter={`${variantCount} variants`}
           />
           <div className="grid gap-2">
-            {study.conditions.map((c, i) => (
+            {study.conditions.map((c) => (
               <div key={c.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
                 <div className="h-7 w-7 rounded bg-primary/5 flex items-center justify-center shrink-0">
                   <Box className="h-3.5 w-3.5 text-primary" />
@@ -256,7 +261,7 @@ export default function StudyDetail() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="cursor-pointer hover:border-accent/40 transition-colors" onClick={() => navigate("/surveys")}>
+            <Card className="cursor-pointer hover:border-accent/40 transition-colors" onClick={() => navigate(`/surveys?studyId=${study.id}`)}>
               <CardContent className="py-4 flex items-center gap-3">
                 <ClipboardList className="h-5 w-5 text-accent" />
                 <div>

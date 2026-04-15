@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,14 +17,27 @@ import {
 import { StatusBadge } from "@/components/StatusBadge";
 import { SectionHeader } from "@/components/SectionHeader";
 import { InfoTooltip } from "@/components/InfoTooltip";
-import { MOCK_SURVEYS, QUESTION_TYPE_LABELS, checkMultiConstruct, validateVASQuestion, type SurveyQuestion, type QuestionType, type Survey } from "@/data/surveys";
-import { MOCK_STUDIES } from "@/data/studies";
-import { Plus, Trash2, AlertTriangle, ChevronDown, ChevronUp, Eye, BarChart3, Layers, Target } from "lucide-react";
+import { QUESTION_TYPE_LABELS, checkMultiConstruct, validateVASQuestion, type SurveyQuestion, type QuestionType, type Survey } from "@/data/surveys";
+import { useAllSurveys, useSurveysByStudy, useSurveyWithQuestions } from "@/hooks/useStudies";
+import { useStudy } from "@/hooks/useStudies";
+import { Plus, Trash2, AlertTriangle, ChevronDown, ChevronUp, Eye, BarChart3, Layers, Target, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Surveys() {
+  const [searchParams] = useSearchParams();
+  const studyIdParam = searchParams.get("studyId");
+
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null);
-  const selectedSurvey = MOCK_SURVEYS.find((s) => s.id === selectedSurveyId);
+
+  // Load surveys: filtered by study if param present, else all
+  const { data: filteredSurveys, isLoading: loadingFiltered } = useSurveysByStudy(studyIdParam || undefined);
+  const { data: allSurveys, isLoading: loadingAll } = useAllSurveys();
+
+  const surveys = studyIdParam ? (filteredSurveys ?? []) : (allSurveys ?? []);
+  const isLoading = studyIdParam ? loadingFiltered : loadingAll;
+
+  // Load full survey with questions when one is selected
+  const { data: fullSurvey } = useSurveyWithQuestions(selectedSurveyId || undefined);
 
   return (
     <AppLayout>
@@ -39,20 +52,30 @@ export default function Surveys() {
           </p>
         </div>
 
-        {!selectedSurvey ? (
-          <SurveyList onSelect={setSelectedSurveyId} />
+        {!selectedSurveyId ? (
+          isLoading ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <SurveyList surveys={surveys} studyId={studyIdParam} onSelect={setSelectedSurveyId} />
+          )
+        ) : fullSurvey ? (
+          <SurveyEditor survey={fullSurvey} onBack={() => setSelectedSurveyId(null)} />
         ) : (
-          <SurveyEditor survey={selectedSurvey} onBack={() => setSelectedSurveyId(null)} />
+          <div className="flex justify-center py-16">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
         )}
       </div>
     </AppLayout>
   );
 }
 
-function SurveyList({ onSelect }: { onSelect: (id: string) => void }) {
+function SurveyList({ surveys, studyId, onSelect }: { surveys: Survey[]; studyId: string | null; onSelect: (id: string) => void }) {
   return (
     <div className="space-y-4">
-      {MOCK_SURVEYS.length === 0 && (
+      {surveys.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="py-10 text-center">
             <p className="text-sm text-muted-foreground">No surveys yet.</p>
@@ -63,8 +86,7 @@ function SurveyList({ onSelect }: { onSelect: (id: string) => void }) {
         </Card>
       )}
       <div className="grid gap-3">
-        {MOCK_SURVEYS.map((survey) => {
-          const study = MOCK_STUDIES.find((s) => s.id === survey.studyId);
+        {surveys.map((survey) => {
           const vasCount = survey.questions.filter((q) => q.type === "vas").length;
           return (
             <Card
@@ -76,7 +98,7 @@ function SurveyList({ onSelect }: { onSelect: (id: string) => void }) {
                 <div>
                   <p className="text-sm font-medium">{survey.title}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {study?.code} · {survey.questions.length} questions · {vasCount} VAS
+                    {survey.questions.length} questions · {vasCount} VAS
                   </p>
                 </div>
                 <StatusBadge status={survey.status} />
@@ -93,7 +115,12 @@ function SurveyEditor({ survey, onBack }: { survey: Survey; onBack: () => void }
   const navigate = useNavigate();
   const [questions, setQuestions] = useState<SurveyQuestion[]>(survey.questions);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const study = MOCK_STUDIES.find((s) => s.id === survey.studyId);
+  const { data: study } = useStudy(survey.studyId);
+
+  // Sync questions when survey data changes
+  useEffect(() => {
+    setQuestions(survey.questions);
+  }, [survey.id]);
 
   const addQuestion = (type: QuestionType) => {
     const newQ: SurveyQuestion = {
@@ -148,10 +175,10 @@ function SurveyEditor({ survey, onBack }: { survey: Survey; onBack: () => void }
           )}
         </div>
         <div className="flex gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={() => navigate("/participate")}>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/participate?studyId=${survey.studyId}&surveyId=${survey.id}&preview=true`)}>
             <Eye className="h-3.5 w-3.5 mr-1" />Preview
           </Button>
-          <Button variant="outline" size="sm" onClick={() => navigate("/analytics")}>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/analytics?studyId=${survey.studyId}`)}>
             <BarChart3 className="h-3.5 w-3.5 mr-1" />Results
           </Button>
           <Button onClick={() => {
