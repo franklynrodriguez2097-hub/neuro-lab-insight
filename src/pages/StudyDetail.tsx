@@ -74,21 +74,21 @@ export default function StudyDetail() {
           <CardContent className="py-5">
             <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-4">Research Workflow</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <Button variant="outline" className="justify-start h-auto py-3 px-4" onClick={() => navigate("/surveys")}>
+              <Button variant="outline" className="justify-start h-auto py-3 px-4" onClick={() => navigate(`/surveys?studyId=${study.id}`)}>
                 <ClipboardList className="h-4 w-4 mr-2.5 text-primary shrink-0" />
                 <div className="text-left">
                   <p className="text-sm font-medium">Open Survey Builder</p>
                   <p className="text-[11px] text-muted-foreground font-normal">Configure VAS and other survey questions for this study.</p>
                 </div>
               </Button>
-              <Button variant="outline" className="justify-start h-auto py-3 px-4" onClick={() => navigate("/participate")}>
+              <Button variant="outline" className="justify-start h-auto py-3 px-4" onClick={() => navigate(`/participate?studyId=${study.id}&preview=true`)}>
                 <Eye className="h-4 w-4 mr-2.5 text-primary shrink-0" />
                 <div className="text-left">
                   <p className="text-sm font-medium">Preview as Participant</p>
                   <p className="text-[11px] text-muted-foreground font-normal">See how the survey looks from the participant's perspective.</p>
                 </div>
               </Button>
-              <Button variant="outline" className="justify-start h-auto py-3 px-4" onClick={() => navigate("/analytics")}>
+              <Button variant="outline" className="justify-start h-auto py-3 px-4" onClick={() => navigate(`/analytics?studyId=${study.id}`)}>
                 <BarChart3 className="h-4 w-4 mr-2.5 text-primary shrink-0" />
                 <div className="text-left">
                   <p className="text-sm font-medium">View Results</p>

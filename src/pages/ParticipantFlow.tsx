@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,12 +7,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Badge } from "@/components/ui/badge";
 import { VASScale } from "@/components/VASScale";
 import { MOCK_SURVEYS } from "@/data/surveys";
-import { FlaskConical, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { MOCK_STUDIES } from "@/data/studies";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { FlaskConical, ArrowRight, ArrowLeft, CheckCircle2, Eye } from "lucide-react";
 import type { SurveyQuestion } from "@/data/surveys";
 
 type FlowStep =
+  | "select-survey"
   | "welcome"
   | "consent"
   | "identify"
@@ -28,14 +39,41 @@ interface ResponseDraft {
 }
 
 export default function ParticipantFlow() {
-  const survey = MOCK_SURVEYS[0]; // demo with first survey
-  const [step, setStep] = useState<FlowStep>("welcome");
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  const studyIdParam = searchParams.get("studyId");
+  const surveyIdParam = searchParams.get("surveyId");
+  const isPreview = searchParams.get("preview") === "true";
+
+  // Resolve study
+  const study = studyIdParam ? MOCK_STUDIES.find((s) => s.id === studyIdParam) : null;
+
+  // Resolve available surveys for this study
+  const availableSurveys = useMemo(() => {
+    if (!studyIdParam) return MOCK_SURVEYS;
+    return MOCK_SURVEYS.filter((s) => s.studyId === studyIdParam);
+  }, [studyIdParam]);
+
+  // Determine initial survey
+  const resolvedSurveyId = useMemo(() => {
+    if (surveyIdParam) return surveyIdParam;
+    if (availableSurveys.length === 1) return availableSurveys[0].id;
+    return null;
+  }, [surveyIdParam, availableSurveys]);
+
+  const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(resolvedSurveyId);
+  const survey = selectedSurveyId ? MOCK_SURVEYS.find((s) => s.id === selectedSurveyId) : null;
+
+  // If no survey resolved and multiple available, start at select step
+  const initialStep: FlowStep = resolvedSurveyId ? "welcome" : "select-survey";
+  const [step, setStep] = useState<FlowStep>(initialStep);
   const [participantCode, setParticipantCode] = useState("");
   const [consentGiven, setConsentGiven] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [responses, setResponses] = useState<Record<string, ResponseDraft>>({});
 
-  const questions = survey.questions;
+  const questions = survey?.questions ?? [];
   const currentQuestion = questions[currentQuestionIndex];
 
   const updateResponse = (questionId: string, updates: Partial<ResponseDraft>) => {
@@ -74,11 +112,68 @@ export default function ParticipantFlow() {
     }
   };
 
-  // Participant-facing: clean, distraction-free layout
+  const handleSelectSurvey = () => {
+    if (selectedSurveyId) {
+      setStep("welcome");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
-        {step === "welcome" && (
+        {/* Preview mode badge */}
+        {isPreview && (
+          <div className="mb-4 flex justify-center">
+            <Badge variant="outline" className="gap-1.5 text-xs border-primary/30 text-primary bg-primary/5">
+              <Eye className="h-3 w-3" />
+              Preview Mode — responses will not be stored
+            </Badge>
+          </div>
+        )}
+
+        {/* Study context header */}
+        {study && step !== "complete" && (
+          <div className="text-center mb-6">
+            <p className="text-xs text-muted-foreground font-mono">{study.code}</p>
+            <p className="text-sm font-medium text-foreground/80">{study.title}</p>
+          </div>
+        )}
+
+        {/* Survey selection step — only when multiple surveys and none pre-selected */}
+        {step === "select-survey" && (
+          <Card>
+            <CardContent className="p-6 space-y-5">
+              <h2 className="text-xl font-heading text-foreground">Select Survey</h2>
+              <p className="text-sm text-muted-foreground">
+                This study has multiple surveys. Choose which one to {isPreview ? "preview" : "complete"}.
+              </p>
+              <Select value={selectedSurveyId || ""} onValueChange={setSelectedSurveyId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Choose a survey…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSurveys.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex gap-3">
+                {isPreview && (
+                  <Button variant="outline" onClick={() => navigate(-1)} className="flex-1">
+                    <ArrowLeft className="h-4 w-4 mr-1" />Back
+                  </Button>
+                )}
+                <Button onClick={handleSelectSurvey} disabled={!selectedSurveyId} className="flex-1">
+                  Continue <ArrowRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {step === "welcome" && survey && (
           <div className="text-center space-y-6">
             <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
               <FlaskConical className="h-8 w-8 text-primary" />
@@ -115,7 +210,7 @@ export default function ParticipantFlow() {
                 <Button variant="outline" onClick={() => setStep("welcome")} className="flex-1">
                   <ArrowLeft className="h-4 w-4 mr-1" />Back
                 </Button>
-                <Button onClick={() => setStep("identify")} disabled={!consentGiven} className="flex-1">
+                <Button onClick={() => setStep(isPreview ? "instructions" : "identify")} disabled={!consentGiven} className="flex-1">
                   Continue <ArrowRight className="h-4 w-4 ml-1" />
                 </Button>
               </div>
@@ -156,13 +251,16 @@ export default function ParticipantFlow() {
                 <p>Please respond as honestly and intuitively as possible. Take your time but do not overthink.</p>
               </div>
               <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setStep("identify")} className="flex-1">
+                <Button variant="outline" onClick={() => setStep(isPreview ? "consent" : "identify")} className="flex-1">
                   <ArrowLeft className="h-4 w-4 mr-1" />Back
                 </Button>
-                <Button onClick={() => { setCurrentQuestionIndex(0); setStep("question"); }} className="flex-1">
+                <Button onClick={() => { setCurrentQuestionIndex(0); setStep("question"); }} disabled={questions.length === 0} className="flex-1">
                   Start Survey <ArrowRight className="h-4 w-4 ml-1" />
                 </Button>
               </div>
+              {questions.length === 0 && (
+                <p className="text-xs text-muted-foreground/60 text-center">This survey has no questions yet.</p>
+              )}
             </CardContent>
           </Card>
         )}
@@ -184,7 +282,6 @@ export default function ParticipantFlow() {
 
             <Card>
               <CardContent className="p-6 space-y-6">
-                {/* Stimulus placeholder */}
                 {currentQuestion.linkedStimulusId && (
                   <div className="aspect-video rounded-lg bg-secondary/60 flex items-center justify-center border border-border">
                     <p className="text-xs text-muted-foreground">Stimulus preview area</p>
@@ -195,7 +292,6 @@ export default function ParticipantFlow() {
                   {currentQuestion.prompt}
                 </p>
 
-                {/* Question renderers */}
                 {currentQuestion.type === "vas" && currentQuestion.vasConfig && (
                   <VASScale
                     leftAnchor={currentQuestion.vasConfig.leftAnchor}
@@ -270,7 +366,7 @@ export default function ParticipantFlow() {
           </div>
         )}
 
-        {step === "review" && (
+        {step === "review" && survey && (
           <Card>
             <CardContent className="p-6 space-y-5">
               <h2 className="text-xl font-heading text-foreground">Review Your Responses</h2>
@@ -302,7 +398,7 @@ export default function ParticipantFlow() {
                   <ArrowLeft className="h-4 w-4 mr-1" />Go Back
                 </Button>
                 <Button onClick={() => setStep("complete")} className="flex-1">
-                  Submit Responses
+                  {isPreview ? "End Preview" : "Submit Responses"}
                 </Button>
               </div>
             </CardContent>
@@ -315,14 +411,25 @@ export default function ParticipantFlow() {
               <CheckCircle2 className="h-8 w-8 text-accent" />
             </div>
             <div>
-              <h1 className="text-2xl font-heading text-foreground">Thank You</h1>
+              <h1 className="text-2xl font-heading text-foreground">
+                {isPreview ? "Preview Complete" : "Thank You"}
+              </h1>
               <p className="text-muted-foreground mt-2 text-sm">
-                Your responses have been recorded successfully. You may now close this window.
+                {isPreview
+                  ? "This was a preview of the participant experience. No responses were stored."
+                  : "Your responses have been recorded successfully. You may now close this window."}
               </p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                Participant: {participantCode} · Survey: {survey.title}
-              </p>
+              {survey && (
+                <p className="text-muted-foreground mt-1 text-xs">
+                  {!isPreview && `Participant: ${participantCode} · `}Survey: {survey.title}
+                </p>
+              )}
             </div>
+            {isPreview && (
+              <Button variant="outline" onClick={() => navigate(-1)} className="mx-auto">
+                <ArrowLeft className="h-4 w-4 mr-1" />Return to Study
+              </Button>
+            )}
           </div>
         )}
       </div>
