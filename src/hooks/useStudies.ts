@@ -1,83 +1,116 @@
 import { useQuery } from "@tanstack/react-query";
+import { useSyncExternalStore } from "react";
 import { fetchStudies, fetchStudyById, fetchStimuliByStudy } from "@/services/studies";
 import { fetchSurveysByStudy, fetchAllSurveys, fetchSurveyWithQuestions } from "@/services/surveys";
 import { MOCK_STUDIES } from "@/data/studies";
 import { MOCK_SURVEYS } from "@/data/surveys";
 import { MOCK_STIMULI } from "@/data/stimuli";
 import { MOCK_SESSIONS } from "@/data/participants";
-import type { Study } from "@/data/studies";
-import type { Survey } from "@/data/surveys";
 
 /**
- * Result wrapper that flags whether data came from the database or fell back
- * to mock fixtures. Used so the UI can render a transparent "mock" indicator
- * instead of silently masking DB failures.
+ * Tracks per-query-key whether the most recent successful load came from the
+ * database or from local mock fixtures. Lets the UI surface a clear "mock
+ * data" indicator instead of silently masking DB failures.
  */
 export type DataSource = "db" | "mock";
-export interface Sourced<T> {
-  data: T;
-  source: DataSource;
+const sourceMap = new Map<string, DataSource>();
+const listeners = new Set<() => void>();
+function setSource(key: string, source: DataSource) {
+  if (sourceMap.get(key) === source) return;
+  sourceMap.set(key, source);
+  listeners.forEach((l) => l());
+}
+function subscribe(l: () => void) {
+  listeners.add(l);
+  return () => listeners.delete(l);
+}
+export function useDataSource(key: string): DataSource | undefined {
+  return useSyncExternalStore(
+    subscribe,
+    () => sourceMap.get(key),
+    () => undefined,
+  );
 }
 
 export function useStudies() {
-  return useQuery<Sourced<Study[]>>({
+  return useQuery({
     queryKey: ["studies"],
     queryFn: async () => {
       const studies = await fetchStudies();
-      if (studies.length > 0) return { data: studies, source: "db" };
-      return { data: MOCK_STUDIES, source: "mock" };
+      if (studies.length > 0) {
+        setSource("studies", "db");
+        return studies;
+      }
+      setSource("studies", "mock");
+      return MOCK_STUDIES;
     },
   });
 }
 
 export function useStudy(id: string | undefined) {
-  return useQuery<Sourced<Study> | null>({
+  return useQuery({
     queryKey: ["study", id],
     queryFn: async () => {
       if (!id) return null;
       const study = await fetchStudyById(id);
-      if (study) return { data: study, source: "db" };
+      if (study) {
+        setSource(`study:${id}`, "db");
+        return study;
+      }
       const mock = MOCK_STUDIES.find((s) => s.id === id);
-      return mock ? { data: mock, source: "mock" } : null;
+      if (mock) setSource(`study:${id}`, "mock");
+      return mock ?? null;
     },
     enabled: !!id,
   });
 }
 
 export function useSurveysByStudy(studyId: string | undefined) {
-  return useQuery<Sourced<Survey[]>>({
+  return useQuery({
     queryKey: ["surveys", "byStudy", studyId],
     queryFn: async () => {
-      if (!studyId) return { data: [], source: "db" };
+      if (!studyId) return [];
       const surveys = await fetchSurveysByStudy(studyId);
-      if (surveys.length > 0) return { data: surveys, source: "db" };
+      if (surveys.length > 0) {
+        setSource(`surveys:byStudy:${studyId}`, "db");
+        return surveys;
+      }
       const mocks = MOCK_SURVEYS.filter((s) => s.studyId === studyId);
-      return { data: mocks, source: mocks.length > 0 ? "mock" : "db" };
+      setSource(`surveys:byStudy:${studyId}`, mocks.length > 0 ? "mock" : "db");
+      return mocks;
     },
     enabled: !!studyId,
   });
 }
 
 export function useAllSurveys() {
-  return useQuery<Sourced<Survey[]>>({
+  return useQuery({
     queryKey: ["surveys", "all"],
     queryFn: async () => {
       const surveys = await fetchAllSurveys();
-      if (surveys.length > 0) return { data: surveys, source: "db" };
-      return { data: MOCK_SURVEYS, source: "mock" };
+      if (surveys.length > 0) {
+        setSource("surveys:all", "db");
+        return surveys;
+      }
+      setSource("surveys:all", "mock");
+      return MOCK_SURVEYS;
     },
   });
 }
 
 export function useSurveyWithQuestions(surveyId: string | undefined) {
-  return useQuery<Sourced<Survey> | null>({
+  return useQuery({
     queryKey: ["survey", surveyId],
     queryFn: async () => {
       if (!surveyId) return null;
       const survey = await fetchSurveyWithQuestions(surveyId);
-      if (survey) return { data: survey, source: "db" };
+      if (survey) {
+        setSource(`survey:${surveyId}`, "db");
+        return survey;
+      }
       const mock = MOCK_SURVEYS.find((s) => s.id === surveyId);
-      return mock ? { data: mock, source: "mock" } : null;
+      if (mock) setSource(`survey:${surveyId}`, "mock");
+      return mock ?? null;
     },
     enabled: !!surveyId,
     retry: 1,
