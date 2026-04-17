@@ -40,7 +40,16 @@ export default function Surveys() {
   const isLoading = studyIdParam ? loadingFiltered : loadingAll;
 
   // Load full survey with questions when one is selected
-  const { data: fullSurvey } = useSurveyWithQuestions(selectedSurveyId || undefined);
+  const {
+    data: fullSurvey,
+    isLoading: loadingSurvey,
+    isError: surveyError,
+    error: surveyErrorObj,
+  } = useSurveyWithQuestions(selectedSurveyId || undefined);
+
+  const listSourceKey = studyIdParam ? `surveys:byStudy:${studyIdParam}` : "surveys:all";
+  const listSource = useDataSource(listSourceKey);
+  const surveySource = useDataSource(selectedSurveyId ? `survey:${selectedSurveyId}` : "");
 
   return (
     <AppLayout>
@@ -61,17 +70,71 @@ export default function Surveys() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <SurveyList surveys={surveys} studyId={studyIdParam} onSelect={setSelectedSurveyId} />
+            <>
+              {listSource === "mock" && <MockBanner context="survey list" />}
+              <SurveyList surveys={surveys} studyId={studyIdParam} onSelect={setSelectedSurveyId} />
+            </>
           )
-        ) : fullSurvey ? (
-          <SurveyEditor survey={fullSurvey} onBack={() => setSelectedSurveyId(null)} />
-        ) : (
-          <div className="flex justify-center py-16">
+        ) : loadingSurvey ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">Loading survey…</p>
           </div>
+        ) : surveyError ? (
+          <SurveyLoadError
+            message={(surveyErrorObj as Error)?.message ?? "Unknown error"}
+            onBack={() => setSelectedSurveyId(null)}
+          />
+        ) : !fullSurvey ? (
+          <SurveyNotFound onBack={() => setSelectedSurveyId(null)} />
+        ) : (
+          <>
+            {surveySource === "mock" && <MockBanner context="this survey" />}
+            <SurveyEditor survey={fullSurvey} onBack={() => setSelectedSurveyId(null)} />
+          </>
         )}
       </div>
     </AppLayout>
+  );
+}
+
+function MockBanner({ context }: { context: string }) {
+  return (
+    <Alert className="border-accent/30 bg-accent/5">
+      <Info className="h-4 w-4 text-accent" />
+      <AlertDescription className="text-xs text-foreground/80">
+        Showing mock data for {context}. The database has no matching records yet — changes here cannot be saved until real data exists.
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+function SurveyLoadError({ message, onBack }: { message: string; onBack: () => void }) {
+  return (
+    <Card className="border-destructive/30 bg-destructive/5">
+      <CardContent className="py-8 text-center space-y-3">
+        <AlertTriangle className="h-6 w-6 text-destructive mx-auto" />
+        <div>
+          <p className="text-sm font-medium text-foreground">Could not load survey</p>
+          <p className="text-xs text-muted-foreground mt-1">{message}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={onBack}>← Back to surveys</Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SurveyNotFound({ onBack }: { onBack: () => void }) {
+  return (
+    <Card className="border-dashed">
+      <CardContent className="py-10 text-center space-y-3">
+        <p className="text-sm font-medium text-foreground">Survey not found</p>
+        <p className="text-xs text-muted-foreground">
+          This survey no longer exists in the database or mock fixtures.
+        </p>
+        <Button variant="outline" size="sm" onClick={onBack}>← Back to surveys</Button>
+      </CardContent>
+    </Card>
   );
 }
 
