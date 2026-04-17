@@ -1,6 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
-import { fetchStudies, fetchStudyById, fetchStimuliByStudy } from "@/services/studies";
+import {
+  fetchStudies,
+  fetchStudyById,
+  fetchStimuliByStudy,
+  createStudy,
+  updateStudy,
+  type StudyInput,
+} from "@/services/studies";
 import { fetchSurveysByStudy, fetchAllSurveys, fetchSurveyWithQuestions } from "@/services/surveys";
 import { MOCK_STUDIES } from "@/data/studies";
 import { MOCK_SURVEYS } from "@/data/surveys";
@@ -137,3 +144,26 @@ export function useSessionsByStudy(studyId: string | undefined) {
     enabled: !!studyId,
   });
 }
+
+export function useCreateStudy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: StudyInput) => createStudy(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["studies"] });
+    },
+  });
+}
+
+export function useUpdateStudy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: StudyInput }) =>
+      updateStudy(id, input),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["studies"] });
+      qc.invalidateQueries({ queryKey: ["study", vars.id] });
+    },
+  });
+}
+
