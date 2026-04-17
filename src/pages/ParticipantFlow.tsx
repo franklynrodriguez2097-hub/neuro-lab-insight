@@ -45,14 +45,13 @@ export default function ParticipantFlow() {
   const surveyIdParam = searchParams.get("surveyId");
   const isPreview = searchParams.get("preview") === "true";
 
-  // Resolve study
-  const study = studyIdParam ? MOCK_STUDIES.find((s) => s.id === studyIdParam) : null;
+  // Resolve study (from DB with mock fallback inside hook)
+  const { data: study } = useStudy(studyIdParam || undefined);
 
   // Resolve available surveys for this study
-  const availableSurveys = useMemo(() => {
-    if (!studyIdParam) return MOCK_SURVEYS;
-    return MOCK_SURVEYS.filter((s) => s.studyId === studyIdParam);
-  }, [studyIdParam]);
+  const { data: availableSurveys = [], isLoading: loadingSurveys } = useSurveysByStudy(
+    studyIdParam || undefined,
+  );
 
   // Determine initial survey
   const resolvedSurveyId = useMemo(() => {
@@ -62,7 +61,16 @@ export default function ParticipantFlow() {
   }, [surveyIdParam, availableSurveys]);
 
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(resolvedSurveyId);
-  const survey = selectedSurveyId ? MOCK_SURVEYS.find((s) => s.id === selectedSurveyId) : null;
+  // Keep selection in sync once surveys finish loading
+  const effectiveSurveyId = selectedSurveyId ?? resolvedSurveyId;
+
+  const {
+    data: survey,
+    isLoading: loadingSurvey,
+    isError: surveyError,
+  } = useSurveyWithQuestions(effectiveSurveyId || undefined);
+
+  const surveySource = useDataSource(effectiveSurveyId ? `survey:${effectiveSurveyId}` : "");
 
   // If no survey resolved and multiple available, start at select step
   const initialStep: FlowStep = resolvedSurveyId ? "welcome" : "select-survey";
