@@ -144,3 +144,26 @@ export function useSessionsByStudy(studyId: string | undefined) {
     enabled: !!studyId,
   });
 }
+
+export function useCreateStudy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: StudyInput) => createStudy(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["studies"] });
+    },
+  });
+}
+
+export function useUpdateStudy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: StudyInput }) =>
+      updateStudy(id, input),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["studies"] });
+      qc.invalidateQueries({ queryKey: ["study", vars.id] });
+    },
+  });
+}
+
