@@ -1,6 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
-import { fetchStudies, fetchStudyById, fetchStimuliByStudy } from "@/services/studies";
+import {
+  fetchStudies,
+  fetchStudyById,
+  fetchStimuliByStudy,
+  createStudy,
+  updateStudy,
+  type StudyInput,
+} from "@/services/studies";
 import { fetchSurveysByStudy, fetchAllSurveys, fetchSurveyWithQuestions } from "@/services/surveys";
 import { MOCK_STUDIES } from "@/data/studies";
 import { MOCK_SURVEYS } from "@/data/surveys";
