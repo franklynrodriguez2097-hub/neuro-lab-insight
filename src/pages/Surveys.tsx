@@ -18,9 +18,12 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { SectionHeader } from "@/components/SectionHeader";
 import { InfoTooltip } from "@/components/InfoTooltip";
 import { QUESTION_TYPE_LABELS, checkMultiConstruct, validateVASQuestion, type SurveyQuestion, type QuestionType, type Survey } from "@/data/surveys";
-import { useAllSurveys, useSurveysByStudy, useSurveyWithQuestions } from "@/hooks/useStudies";
-import { useStudy } from "@/hooks/useStudies";
-import { Plus, Trash2, AlertTriangle, ChevronDown, ChevronUp, Eye, BarChart3, Layers, Target, Loader2 } from "lucide-react";
+import { useAllSurveys, useSurveysByStudy, useSurveyWithQuestions, useStudy, useDataSource } from "@/hooks/useStudies";
+import { saveSurvey } from "@/services/surveys";
+import { isUuid } from "@/lib/ids";
+import { useQueryClient } from "@tanstack/react-query";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Plus, Trash2, AlertTriangle, ChevronDown, ChevronUp, Eye, BarChart3, Layers, Target, Loader2, Database, Info } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Surveys() {
@@ -37,7 +40,16 @@ export default function Surveys() {
   const isLoading = studyIdParam ? loadingFiltered : loadingAll;
 
   // Load full survey with questions when one is selected
-  const { data: fullSurvey } = useSurveyWithQuestions(selectedSurveyId || undefined);
+  const {
+    data: fullSurvey,
+    isLoading: loadingSurvey,
+    isError: surveyError,
+    error: surveyErrorObj,
+  } = useSurveyWithQuestions(selectedSurveyId || undefined);
+
+  const listSourceKey = studyIdParam ? `surveys:byStudy:${studyIdParam}` : "surveys:all";
+  const listSource = useDataSource(listSourceKey);
+  const surveySource = useDataSource(selectedSurveyId ? `survey:${selectedSurveyId}` : "");
 
   return (
     <AppLayout>
@@ -58,17 +70,71 @@ export default function Surveys() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <SurveyList surveys={surveys} studyId={studyIdParam} onSelect={setSelectedSurveyId} />
+            <>
+              {listSource === "mock" && <MockBanner context="survey list" />}
+              <SurveyList surveys={surveys} studyId={studyIdParam} onSelect={setSelectedSurveyId} />
+            </>
           )
-        ) : fullSurvey ? (
-          <SurveyEditor survey={fullSurvey} onBack={() => setSelectedSurveyId(null)} />
-        ) : (
-          <div className="flex justify-center py-16">
+        ) : loadingSurvey ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">Loading survey…</p>
           </div>
+        ) : surveyError ? (
+          <SurveyLoadError
+            message={(surveyErrorObj as Error)?.message ?? "Unknown error"}
+            onBack={() => setSelectedSurveyId(null)}
+          />
+        ) : !fullSurvey ? (
+          <SurveyNotFound onBack={() => setSelectedSurveyId(null)} />
+        ) : (
+          <>
+            {surveySource === "mock" && <MockBanner context="this survey" />}
+            <SurveyEditor survey={fullSurvey} onBack={() => setSelectedSurveyId(null)} />
+          </>
         )}
       </div>
     </AppLayout>
+  );
+}
+
+function MockBanner({ context }: { context: string }) {
+  return (
+    <Alert className="border-accent/30 bg-accent/5">
+      <Info className="h-4 w-4 text-accent" />
+      <AlertDescription className="text-xs text-foreground/80">
+        Showing mock data for {context}. The database has no matching records yet — changes here cannot be saved until real data exists.
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+function SurveyLoadError({ message, onBack }: { message: string; onBack: () => void }) {
+  return (
+    <Card className="border-destructive/30 bg-destructive/5">
+      <CardContent className="py-8 text-center space-y-3">
+        <AlertTriangle className="h-6 w-6 text-destructive mx-auto" />
+        <div>
+          <p className="text-sm font-medium text-foreground">Could not load survey</p>
+          <p className="text-xs text-muted-foreground mt-1">{message}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={onBack}>← Back to surveys</Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SurveyNotFound({ onBack }: { onBack: () => void }) {
+  return (
+    <Card className="border-dashed">
+      <CardContent className="py-10 text-center space-y-3">
+        <p className="text-sm font-medium text-foreground">Survey not found</p>
+        <p className="text-xs text-muted-foreground">
+          This survey no longer exists in the database or mock fixtures.
+        </p>
+        <Button variant="outline" size="sm" onClick={onBack}>← Back to surveys</Button>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -113,9 +179,12 @@ function SurveyList({ surveys, studyId, onSelect }: { surveys: Survey[]; studyId
 
 function SurveyEditor({ survey, onBack }: { survey: Survey; onBack: () => void }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [questions, setQuestions] = useState<SurveyQuestion[]>(survey.questions);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const { data: study } = useStudy(survey.studyId);
+  const isPersistable = isUuid(survey.id);
 
   // Sync questions when survey data changes
   useEffect(() => {
@@ -181,16 +250,35 @@ function SurveyEditor({ survey, onBack }: { survey: Survey; onBack: () => void }
           <Button variant="outline" size="sm" onClick={() => navigate(`/analytics?studyId=${survey.studyId}`)}>
             <BarChart3 className="h-3.5 w-3.5 mr-1" />Results
           </Button>
-          <Button onClick={() => {
-            const vasErrors = questions
-              .filter((q) => q.type === "vas")
-              .flatMap((q) => validateVASQuestion(q));
-            if (vasErrors.length > 0) {
-              toast.error(vasErrors[0]);
-              return;
-            }
-            toast.success("Survey saved (mock).");
-          }} size="sm">
+          <Button
+            onClick={async () => {
+              const vasErrors = questions
+                .filter((q) => q.type === "vas")
+                .flatMap((q) => validateVASQuestion(q));
+              if (vasErrors.length > 0) {
+                toast.error(vasErrors[0]);
+                return;
+              }
+              if (!isPersistable) {
+                toast.error("This survey is mock-only. Create it in the database first to enable saving.");
+                return;
+              }
+              try {
+                setSaving(true);
+                await saveSurvey({ ...survey, questions });
+                await queryClient.invalidateQueries({ queryKey: ["survey", survey.id] });
+                await queryClient.invalidateQueries({ queryKey: ["surveys"] });
+                toast.success("Survey saved.");
+              } catch (e) {
+                toast.error(`Save failed: ${(e as Error).message}`);
+              } finally {
+                setSaving(false);
+              }
+            }}
+            size="sm"
+            disabled={saving}
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : null}
             Save Survey
           </Button>
         </div>
