@@ -179,9 +179,12 @@ function SurveyList({ surveys, studyId, onSelect }: { surveys: Survey[]; studyId
 
 function SurveyEditor({ survey, onBack }: { survey: Survey; onBack: () => void }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [questions, setQuestions] = useState<SurveyQuestion[]>(survey.questions);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const { data: study } = useStudy(survey.studyId);
+  const isPersistable = isUuid(survey.id);
 
   // Sync questions when survey data changes
   useEffect(() => {
