@@ -125,16 +125,67 @@ export default function ParticipantFlow() {
     }
   };
 
+  // Loading: surveys list still loading and no resolved id yet
+  if (loadingSurveys && !effectiveSurveyId) {
+    return (
+      <ParticipantShell>
+        <div className="flex flex-col items-center gap-3 py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">Loading study…</p>
+        </div>
+      </ParticipantShell>
+    );
+  }
+
+  // Loading: full survey content
+  if (effectiveSurveyId && loadingSurvey) {
+    return (
+      <ParticipantShell>
+        <div className="flex flex-col items-center gap-3 py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">Loading survey…</p>
+        </div>
+      </ParticipantShell>
+    );
+  }
+
+  // Error / not found
+  if (effectiveSurveyId && (surveyError || !survey)) {
+    return (
+      <ParticipantShell>
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="py-8 text-center space-y-3">
+            <AlertTriangle className="h-6 w-6 text-destructive mx-auto" />
+            <p className="text-sm font-medium text-foreground">Survey unavailable</p>
+            <p className="text-xs text-muted-foreground">
+              The selected survey could not be loaded. It may have been removed.
+            </p>
+            {isPreview && (
+              <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+                <ArrowLeft className="h-4 w-4 mr-1" />Back
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </ParticipantShell>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
         {/* Preview mode badge */}
         {isPreview && (
-          <div className="mb-4 flex justify-center">
+          <div className="mb-4 flex justify-center flex-col items-center gap-2">
             <Badge variant="outline" className="gap-1.5 text-xs border-primary/30 text-primary bg-primary/5">
               <Eye className="h-3 w-3" />
               Preview Mode — responses will not be stored
             </Badge>
+            {surveySource === "mock" && (
+              <Badge variant="outline" className="gap-1.5 text-[10px] border-accent/30 text-accent bg-accent/5">
+                Using mock survey data
+              </Badge>
+            )}
           </div>
         )}
 
@@ -145,6 +196,7 @@ export default function ParticipantFlow() {
             <p className="text-sm font-medium text-foreground/80">{study.title}</p>
           </div>
         )}
+
 
         {/* Survey selection step — only when multiple surveys and none pre-selected */}
         {step === "select-survey" && (
