@@ -250,16 +250,35 @@ function SurveyEditor({ survey, onBack }: { survey: Survey; onBack: () => void }
           <Button variant="outline" size="sm" onClick={() => navigate(`/analytics?studyId=${survey.studyId}`)}>
             <BarChart3 className="h-3.5 w-3.5 mr-1" />Results
           </Button>
-          <Button onClick={() => {
-            const vasErrors = questions
-              .filter((q) => q.type === "vas")
-              .flatMap((q) => validateVASQuestion(q));
-            if (vasErrors.length > 0) {
-              toast.error(vasErrors[0]);
-              return;
-            }
-            toast.success("Survey saved (mock).");
-          }} size="sm">
+          <Button
+            onClick={async () => {
+              const vasErrors = questions
+                .filter((q) => q.type === "vas")
+                .flatMap((q) => validateVASQuestion(q));
+              if (vasErrors.length > 0) {
+                toast.error(vasErrors[0]);
+                return;
+              }
+              if (!isPersistable) {
+                toast.error("This survey is mock-only. Create it in the database first to enable saving.");
+                return;
+              }
+              try {
+                setSaving(true);
+                await saveSurvey({ ...survey, questions });
+                await queryClient.invalidateQueries({ queryKey: ["survey", survey.id] });
+                await queryClient.invalidateQueries({ queryKey: ["surveys"] });
+                toast.success("Survey saved.");
+              } catch (e) {
+                toast.error(`Save failed: ${(e as Error).message}`);
+              } finally {
+                setSaving(false);
+              }
+            }}
+            size="sm"
+            disabled={saving}
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : null}
             Save Survey
           </Button>
         </div>
