@@ -1,7 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
-import { mapStudyRow, mapConditionRow, mapStimulusRow } from "./mappers";
+import { mapStudyRow, mapStimulusRow } from "./mappers";
 import type { Study } from "@/data/studies";
 import type { Stimulus } from "@/data/stimuli";
+import { isUuid } from "@/lib/ids";
 
 export async function fetchStudies(): Promise<Study[]> {
   const { data: rows, error } = await supabase
@@ -14,7 +15,6 @@ export async function fetchStudies(): Promise<Study[]> {
 
   const studyIds = rows.map((r) => r.id);
 
-  // Batch-fetch related data
   const [condRes, surveyCountRes, sessionCountRes] = await Promise.all([
     supabase.from("study_conditions").select("*").in("study_id", studyIds),
     supabase.from("surveys").select("id, study_id").in("study_id", studyIds),
@@ -34,6 +34,7 @@ export async function fetchStudies(): Promise<Study[]> {
 }
 
 export async function fetchStudyById(id: string): Promise<Study | null> {
+  if (!isUuid(id)) return null;
   const { data: row, error } = await supabase
     .from("studies")
     .select("*")
@@ -53,11 +54,12 @@ export async function fetchStudyById(id: string): Promise<Study | null> {
     row,
     condRes.data ?? [],
     surveyCountRes.data?.length ?? 0,
-    sessionCountRes.data?.length ?? 0
+    sessionCountRes.data?.length ?? 0,
   );
 }
 
 export async function fetchStimuliByStudy(studyId: string): Promise<Stimulus[]> {
+  if (!isUuid(studyId)) return [];
   const [stimRes, condRes] = await Promise.all([
     supabase.from("stimuli").select("*").eq("study_id", studyId),
     supabase.from("study_conditions").select("id, name").eq("study_id", studyId),
@@ -67,6 +69,6 @@ export async function fetchStimuliByStudy(studyId: string): Promise<Stimulus[]> 
   const condMap = new Map((condRes.data ?? []).map((c) => [c.id, c.name]));
 
   return (stimRes.data ?? []).map((row) =>
-    mapStimulusRow(row, condMap.get(row.condition_id))
+    mapStimulusRow(row, condMap.get(row.condition_id)),
   );
 }
