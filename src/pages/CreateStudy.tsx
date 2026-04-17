@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Plus, Trash2, Layers, Target } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Layers, Target, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { STUDY_OWNERS, STUDY_STATUS_OPTIONS, MAX_FACTORS, MIN_ATTRIBUTES, MAX_ATTRIBUTES } from "@/data/studies";
-import type { StudyFactor } from "@/data/studies";
+import {
+  STUDY_OWNERS,
+  STUDY_STATUS_OPTIONS,
+  MAX_FACTORS,
+  MIN_ATTRIBUTES,
+  MAX_ATTRIBUTES,
+} from "@/data/studies";
+import type { StudyFactor, StudyStatus } from "@/data/studies";
+import { useCreateStudy, useStudy, useUpdateStudy } from "@/hooks/useStudies";
+import { StudyValidationError } from "@/services/studies";
+import { isUuid } from "@/lib/ids";
 
 interface ConditionDraft {
   id: string;
@@ -39,6 +48,12 @@ const newFactor = (): StudyFactor => ({
 
 export default function CreateStudy() {
   const navigate = useNavigate();
+  const { id: editId } = useParams<{ id: string }>();
+  const isEdit = !!editId;
+  const { data: existing, isLoading: loadingExisting } = useStudy(editId);
+  const createMut = useCreateStudy();
+  const updateMut = useUpdateStudy();
+
   const [title, setTitle] = useState("");
   const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
@@ -46,25 +61,55 @@ export default function CreateStudy() {
   const [owner, setOwner] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [status, setStatus] = useState("draft");
+  const [status, setStatus] = useState<StudyStatus>("draft");
   const [version, setVersion] = useState("0.1");
   const [conditions, setConditions] = useState<ConditionDraft[]>([newCondition(), newCondition()]);
   const [factors, setFactors] = useState<StudyFactor[]>([newFactor()]);
   const [attributes, setAttributes] = useState<string[]>(["", ""]);
 
+  // Hydrate form when editing
+  useEffect(() => {
+    if (!isEdit || !existing) return;
+    setTitle(existing.title);
+    setCode(existing.code);
+    setDescription(existing.description);
+    setObjective(existing.objective);
+    setOwner(existing.owner);
+    setStartDate(existing.startDate);
+    setEndDate(existing.endDate);
+    setStatus(existing.status);
+    setVersion(existing.version);
+    setConditions(
+      existing.conditions.length > 0
+        ? existing.conditions.map((c) => ({
+            id: c.id,
+            name: c.name,
+            description: c.description,
+          }))
+        : [newCondition(), newCondition()],
+    );
+    setFactors(
+      existing.factors.length > 0
+        ? existing.factors.map((f) => ({
+            id: f.id || crypto.randomUUID(),
+            name: f.name,
+            levels: f.levels.length >= 2 ? f.levels : [...f.levels, "", ""].slice(0, 2),
+          }))
+        : [newFactor()],
+    );
+    setAttributes(existing.attributes.length > 0 ? existing.attributes : ["", ""]);
+  }, [isEdit, existing]);
+
   const updateCondition = (id: string, field: keyof ConditionDraft, value: string) => {
     setConditions((prev) => prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)));
   };
-
   const removeCondition = (id: string) => {
     if (conditions.length <= 1) return;
     setConditions((prev) => prev.filter((c) => c.id !== id));
   };
-
   const updateFactor = (id: string, name: string) => {
     setFactors((prev) => prev.map((f) => (f.id === id ? { ...f, name } : f)));
   };
-
   const updateFactorLevel = (factorId: string, levelIndex: number, value: string) => {
     setFactors((prev) =>
       prev.map((f) => {
@@ -72,53 +117,120 @@ export default function CreateStudy() {
         const levels = [...f.levels];
         levels[levelIndex] = value;
         return { ...f, levels };
-      })
+      }),
     );
   };
-
   const addFactorLevel = (factorId: string) => {
     setFactors((prev) =>
-      prev.map((f) => (f.id === factorId ? { ...f, levels: [...f.levels, ""] } : f))
+      prev.map((f) => (f.id === factorId ? { ...f, levels: [...f.levels, ""] } : f)),
     );
   };
-
   const removeFactorLevel = (factorId: string, levelIndex: number) => {
     setFactors((prev) =>
       prev.map((f) => {
         if (f.id !== factorId || f.levels.length <= 2) return f;
         return { ...f, levels: f.levels.filter((_, i) => i !== levelIndex) };
-      })
+      }),
     );
   };
-
   const removeFactor = (id: string) => {
     if (factors.length <= 1) return;
     setFactors((prev) => prev.filter((f) => f.id !== id));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const isMockEdit = isEdit && !!editId && !isUuid(editId);
+  const submitting = createMut.isPending || updateMut.isPending;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) { toast.error("Study title is required."); return; }
-    if (!code.trim()) { toast.error("Study code is required."); return; }
-    if (conditions.some((c) => !c.name.trim())) { toast.error("All conditions must have a name."); return; }
-    const validAttrs = attributes.filter((a) => a.trim());
-    if (validAttrs.length < MIN_ATTRIBUTES) { toast.error(`Define at least ${MIN_ATTRIBUTES} attributes.`); return; }
-    toast.success("Study created successfully (mock).");
-    navigate("/studies");
+
+    const input = {
+      title,
+      code,
+      description,
+      objective,
+      ownerName: owner,
+      startDate,
+      endDate,
+      status,
+      version,
+      factors,
+      attributes,
+      conditions: conditions.map((c) => ({
+        id: c.id,
+        name: c.name,
+        description: c.description,
+      })),
+    };
+
+    try {
+      if (isEdit && editId) {
+        await updateMut.mutateAsync({ id: editId, input });
+        toast.success("Study updated.");
+        navigate(`/studies/${editId}`);
+      } else {
+        const newId = await createMut.mutateAsync(input);
+        toast.success("Study created.");
+        navigate(`/studies/${newId}`);
+      }
+    } catch (err) {
+      const msg =
+        err instanceof StudyValidationError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Failed to save study.";
+      toast.error(msg);
+    }
   };
+
+  if (isEdit && loadingExisting) {
+    return (
+      <AppLayout>
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (isEdit && !existing) {
+    return (
+      <AppLayout>
+        <div className="max-w-2xl mx-auto text-center py-16">
+          <p className="text-muted-foreground">Study not found.</p>
+          <Button variant="outline" className="mt-4" onClick={() => navigate("/studies")}>
+            Back to Studies
+          </Button>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
       <div className="max-w-2xl mx-auto space-y-6">
-        <button onClick={() => navigate("/studies")} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="h-4 w-4" />Back to Studies
+        <button
+          onClick={() => navigate(isEdit && editId ? `/studies/${editId}` : "/studies")}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {isEdit ? "Back to Study" : "Back to Studies"}
         </button>
 
         <div>
-          <h1 className="text-3xl font-heading text-foreground">New Study</h1>
+          <h1 className="text-3xl font-heading text-foreground">
+            {isEdit ? "Edit Study" : "New Study"}
+          </h1>
           <p className="text-muted-foreground mt-1">
             Define a comparative perception study with factors, attributes, and experimental conditions.
           </p>
+          {isMockEdit && (
+            <p className="mt-3 text-xs px-3 py-2 rounded border border-dashed border-accent/40 bg-accent/5 text-accent">
+              This study is loaded from local mock data and cannot be updated. Saving will fail —
+              create it as a new study instead.
+            </p>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
@@ -156,13 +268,7 @@ export default function CreateStudy() {
                 description="Define the design variables that change across your stimulus variants."
                 counter={`${factors.length} / ${MAX_FACTORS}`}
               >
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={factors.length >= MAX_FACTORS}
-                  onClick={() => setFactors((prev) => [...prev, newFactor()])}
-                >
+                <Button type="button" variant="outline" size="sm" disabled={factors.length >= MAX_FACTORS} onClick={() => setFactors((prev) => [...prev, newFactor()])}>
                   <Plus className="h-3.5 w-3.5 mr-1" />Add Factor
                 </Button>
               </SectionHeader>
@@ -175,18 +281,9 @@ export default function CreateStudy() {
                         <Layers className="h-3.5 w-3.5 text-primary" />
                       </div>
                       <div className="flex-1 space-y-2">
-                        <Input
-                          placeholder="Factor name (e.g., color, shape, typography)"
-                          value={factor.name}
-                          onChange={(e) => updateFactor(factor.id, e.target.value)}
-                        />
+                        <Input placeholder="Factor name (e.g., color, shape, typography)" value={factor.name} onChange={(e) => updateFactor(factor.id, e.target.value)} />
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => removeFactor(factor.id)}
-                        disabled={factors.length <= 1}
-                        className="mt-2 text-muted-foreground hover:text-destructive disabled:opacity-30 transition-colors"
-                      >
+                      <button type="button" onClick={() => removeFactor(factor.id)} disabled={factors.length <= 1} className="mt-2 text-muted-foreground hover:text-destructive disabled:opacity-30 transition-colors">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -195,18 +292,8 @@ export default function CreateStudy() {
                       {factor.levels.map((level, li) => (
                         <div key={li} className="flex gap-2 items-center">
                           <span className="text-[10px] text-muted-foreground/50 w-4 text-center font-mono">{li + 1}</span>
-                          <Input
-                            placeholder={li === 0 ? "e.g., green" : li === 1 ? "e.g., orange" : "e.g., blue"}
-                            value={level}
-                            onChange={(e) => updateFactorLevel(factor.id, li, e.target.value)}
-                            className="flex-1 h-8 text-sm"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeFactorLevel(factor.id, li)}
-                            disabled={factor.levels.length <= 2}
-                            className="text-muted-foreground hover:text-destructive disabled:opacity-20 transition-colors"
-                          >
+                          <Input placeholder={li === 0 ? "e.g., green" : li === 1 ? "e.g., orange" : "e.g., blue"} value={level} onChange={(e) => updateFactorLevel(factor.id, li, e.target.value)} className="flex-1 h-8 text-sm" />
+                          <button type="button" onClick={() => removeFactorLevel(factor.id, li)} disabled={factor.levels.length <= 2} className="text-muted-foreground hover:text-destructive disabled:opacity-20 transition-colors">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -231,13 +318,7 @@ export default function CreateStudy() {
                 description="Define the perceptions you want participants to rate using VAS."
                 counter={`${attributes.filter((a) => a.trim()).length} / ${MAX_ATTRIBUTES}`}
               >
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={attributes.length >= MAX_ATTRIBUTES}
-                  onClick={() => setAttributes((prev) => [...prev, ""])}
-                >
+                <Button type="button" variant="outline" size="sm" disabled={attributes.length >= MAX_ATTRIBUTES} onClick={() => setAttributes((prev) => [...prev, ""])}>
                   <Plus className="h-3.5 w-3.5 mr-1" />Add Attribute
                 </Button>
               </SectionHeader>
@@ -292,7 +373,7 @@ export default function CreateStudy() {
                 </div>
                 <div className="space-y-2">
                   <Label>Status</Label>
-                  <Select value={status} onValueChange={setStatus}>
+                  <Select value={status} onValueChange={(v) => setStatus(v as StudyStatus)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {STUDY_STATUS_OPTIONS.map((s) => (
@@ -349,8 +430,13 @@ export default function CreateStudy() {
           </Card>
 
           <div className="flex gap-3 justify-end">
-            <Button type="button" variant="outline" onClick={() => navigate("/studies")}>Cancel</Button>
-            <Button type="submit">Create Study</Button>
+            <Button type="button" variant="outline" onClick={() => navigate(isEdit && editId ? `/studies/${editId}` : "/studies")} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {isEdit ? "Save Changes" : "Create Study"}
+            </Button>
           </div>
         </form>
       </div>
