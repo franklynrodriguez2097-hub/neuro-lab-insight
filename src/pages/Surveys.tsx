@@ -18,9 +18,12 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { SectionHeader } from "@/components/SectionHeader";
 import { InfoTooltip } from "@/components/InfoTooltip";
 import { QUESTION_TYPE_LABELS, checkMultiConstruct, validateVASQuestion, type SurveyQuestion, type QuestionType, type Survey } from "@/data/surveys";
-import { useAllSurveys, useSurveysByStudy, useSurveyWithQuestions } from "@/hooks/useStudies";
-import { useStudy } from "@/hooks/useStudies";
-import { Plus, Trash2, AlertTriangle, ChevronDown, ChevronUp, Eye, BarChart3, Layers, Target, Loader2 } from "lucide-react";
+import { useAllSurveys, useSurveysByStudy, useSurveyWithQuestions, useStudy, useDataSource } from "@/hooks/useStudies";
+import { saveSurvey } from "@/services/surveys";
+import { isUuid } from "@/lib/ids";
+import { useQueryClient } from "@tanstack/react-query";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Plus, Trash2, AlertTriangle, ChevronDown, ChevronUp, Eye, BarChart3, Layers, Target, Loader2, Database, Info } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Surveys() {
