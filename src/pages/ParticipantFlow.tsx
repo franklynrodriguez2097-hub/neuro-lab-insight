@@ -9,8 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { VASScale } from "@/components/VASScale";
-import { MOCK_SURVEYS } from "@/data/surveys";
-import { MOCK_STUDIES } from "@/data/studies";
+import { useStudy, useSurveysByStudy, useSurveyWithQuestions, useDataSource } from "@/hooks/useStudies";
 import {
   Select,
   SelectContent,
@@ -18,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FlaskConical, ArrowRight, ArrowLeft, CheckCircle2, Eye } from "lucide-react";
+import { FlaskConical, ArrowRight, ArrowLeft, CheckCircle2, Eye, Loader2, AlertTriangle } from "lucide-react";
 import type { SurveyQuestion } from "@/data/surveys";
 
 type FlowStep =
