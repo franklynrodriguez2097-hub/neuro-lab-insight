@@ -82,6 +82,28 @@ export default function ParticipantFlow() {
   const [consentGiven, setConsentGiven] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [responses, setResponses] = useState<Record<string, ResponseDraft>>({});
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Pick first study condition by default; allow URL override.
+  const conditionIdParam = searchParams.get("conditionId");
+  const resolvedConditionId = useMemo(() => {
+    if (conditionIdParam && isUuid(conditionIdParam)) return conditionIdParam;
+    const first = study?.conditions?.[0];
+    return first && isUuid(first.id) ? first.id : null;
+  }, [conditionIdParam, study]);
+  const resolvedCondition = useMemo(
+    () => study?.conditions?.find((c) => c.id === resolvedConditionId) ?? null,
+    [study, resolvedConditionId],
+  );
+
+  // Whether real writes are possible (not preview, real UUIDs available).
+  const canPersist =
+    !isPreview &&
+    isUuid(study?.id) &&
+    isUuid(survey?.id) &&
+    isUuid(resolvedConditionId);
 
   const questions = survey?.questions ?? [];
   const currentQuestion = questions[currentQuestionIndex];
