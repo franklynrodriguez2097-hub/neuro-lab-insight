@@ -39,10 +39,12 @@ export default function Surveys() {
   const studyIdParam = searchParams.get("studyId");
 
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   // Load surveys: filtered by study if param present, else all
   const { data: filteredSurveys, isLoading: loadingFiltered } = useSurveysByStudy(studyIdParam || undefined);
   const { data: allSurveys, isLoading: loadingAll } = useAllSurveys();
+  const { data: contextStudy } = useStudy(studyIdParam || undefined);
 
   const surveys = studyIdParam ? (filteredSurveys ?? []) : (allSurveys ?? []);
   const isLoading = studyIdParam ? loadingFiltered : loadingAll;
@@ -59,17 +61,31 @@ export default function Surveys() {
   const listSource = useDataSource(listSourceKey);
   const surveySource = useDataSource(selectedSurveyId ? `survey:${selectedSurveyId}` : "");
 
+  const canCreate = !!studyIdParam && isUuid(studyIdParam);
+
   return (
     <AppLayout>
       <div className="max-w-6xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-heading text-foreground">Survey Builder</h1>
-          <p className="text-muted-foreground mt-1">
-            Configure VAS and other survey questions for your perception studies.
-          </p>
-          <p className="text-xs text-muted-foreground/70 mt-1">
-            Create one VAS question per attribute you want to measure. Use open-ended and choice questions for additional insights.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-heading text-foreground">Survey Builder</h1>
+            <p className="text-muted-foreground mt-1">
+              Configure VAS and other survey questions for your perception studies.
+            </p>
+            <p className="text-xs text-muted-foreground/70 mt-1">
+              Create one VAS question per attribute you want to measure. Use open-ended and choice questions for additional insights.
+            </p>
+            {contextStudy && (
+              <p className="text-xs text-muted-foreground/60 mt-2 font-mono">
+                Context: {contextStudy.code} — {contextStudy.title}
+              </p>
+            )}
+          </div>
+          {!selectedSurveyId && canCreate && (
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-3.5 w-3.5 mr-1" />New Survey
+            </Button>
+          )}
         </div>
 
         {!selectedSurveyId ? (
@@ -80,7 +96,13 @@ export default function Surveys() {
           ) : (
             <>
               {listSource === "mock" && <MockBanner context="survey list" />}
-              <SurveyList surveys={surveys} studyId={studyIdParam} onSelect={setSelectedSurveyId} />
+              <SurveyList
+                surveys={surveys}
+                studyId={studyIdParam}
+                canCreate={canCreate}
+                onCreate={() => setCreateOpen(true)}
+                onSelect={setSelectedSurveyId}
+              />
             </>
           )
         ) : loadingSurvey ? (
@@ -101,8 +123,104 @@ export default function Surveys() {
             <SurveyEditor survey={fullSurvey} onBack={() => setSelectedSurveyId(null)} />
           </>
         )}
+
+        {canCreate && (
+          <NewSurveyDialog
+            open={createOpen}
+            onOpenChange={setCreateOpen}
+            studyId={studyIdParam!}
+            studyLabel={contextStudy ? `${contextStudy.code} — ${contextStudy.title}` : undefined}
+            onCreated={(id) => {
+              setCreateOpen(false);
+              setSelectedSurveyId(id);
+            }}
+          />
+        )}
       </div>
     </AppLayout>
+  );
+}
+
+function NewSurveyDialog({
+  open,
+  onOpenChange,
+  studyId,
+  studyLabel,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  studyId: string;
+  studyLabel?: string;
+  onCreated: (id: string) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const createMut = useCreateSurvey();
+
+  useEffect(() => {
+    if (open) {
+      setTitle("");
+      setDescription("");
+    }
+  }, [open]);
+
+  const submit = async () => {
+    if (!title.trim()) {
+      toast.error("Survey title is required.");
+      return;
+    }
+    try {
+      const id = await createMut.mutateAsync({ studyId, title, description });
+      toast.success("Survey created.");
+      onCreated(id);
+    } catch (e) {
+      toast.error(`Could not create survey: ${(e as Error).message}`);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New Survey</DialogTitle>
+          <DialogDescription>
+            {studyLabel ? `For study: ${studyLabel}` : "Create a new survey for this study."}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="new-survey-title">Title *</Label>
+            <Input
+              id="new-survey-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g., Perception baseline"
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="new-survey-desc">Description</Label>
+            <Textarea
+              id="new-survey-desc"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              placeholder="Optional context for researchers."
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={createMut.isPending}>
+            Cancel
+          </Button>
+          <Button onClick={submit} disabled={createMut.isPending}>
+            {createMut.isPending && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}
+            Create & Open
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
