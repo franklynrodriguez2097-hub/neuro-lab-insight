@@ -8,7 +8,7 @@ import {
   updateStudy,
   type StudyInput,
 } from "@/services/studies";
-import { fetchSurveysByStudy, fetchAllSurveys, fetchSurveyWithQuestions } from "@/services/surveys";
+import { fetchSurveysByStudy, fetchAllSurveys, fetchSurveyWithQuestions, createSurvey, type CreateSurveyInput } from "@/services/surveys";
 import { MOCK_STUDIES } from "@/data/studies";
 import { MOCK_SURVEYS } from "@/data/surveys";
 import { MOCK_STIMULI } from "@/data/stimuli";
