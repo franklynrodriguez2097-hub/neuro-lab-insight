@@ -524,8 +524,40 @@ export default function ParticipantFlow() {
                 <Button variant="outline" onClick={() => { setCurrentQuestionIndex(questions.length - 1); setStep("question"); }} className="flex-1">
                   <ArrowLeft className="h-4 w-4 mr-1" />Go Back
                 </Button>
-                <Button onClick={() => setStep("complete")} className="flex-1">
-                  {isPreview ? "End Preview" : "Submit Responses"}
+                <Button
+                  onClick={async () => {
+                    setSubmitError(null);
+                    if (!canPersist || !sessionId) {
+                      setStep("complete");
+                      return;
+                    }
+                    try {
+                      setSubmitting(true);
+                      await submitAnswers({
+                        sessionId,
+                        conditionId: resolvedConditionId!,
+                        questions,
+                        answers: responses,
+                      });
+                      await completeSession(sessionId);
+                      setStep("complete");
+                    } catch (e: any) {
+                      setSubmitError(e?.message ?? "Failed to submit responses");
+                      toast({
+                        title: "Could not submit responses",
+                        description: e?.message ?? "Please try again.",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                  disabled={submitting}
+                  className="flex-1"
+                >
+                  {submitting ? (
+                    <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Submitting…</>
+                  ) : isPreview ? "End Preview" : "Submit Responses"}
                 </Button>
               </div>
             </CardContent>
