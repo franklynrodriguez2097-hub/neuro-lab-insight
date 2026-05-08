@@ -264,16 +264,35 @@ function SurveyNotFound({ onBack }: { onBack: () => void }) {
   );
 }
 
-function SurveyList({ surveys, studyId, onSelect }: { surveys: Survey[]; studyId: string | null; onSelect: (id: string) => void }) {
+function SurveyList({
+  surveys,
+  studyId,
+  canCreate,
+  onCreate,
+  onSelect,
+}: {
+  surveys: Survey[];
+  studyId: string | null;
+  canCreate: boolean;
+  onCreate: () => void;
+  onSelect: (id: string) => void;
+}) {
   return (
     <div className="space-y-4">
       {surveys.length === 0 && (
         <Card className="border-dashed">
-          <CardContent className="py-10 text-center">
+          <CardContent className="py-10 text-center space-y-3">
             <p className="text-sm text-muted-foreground">No surveys yet.</p>
-            <p className="text-xs text-muted-foreground/70 mt-1">
-              Create a survey from a study's detail page to begin configuring questions.
+            <p className="text-xs text-muted-foreground/70">
+              {canCreate
+                ? "Create the first survey for this study to start adding VAS and other questions."
+                : "Open a study from the Studies page to create a survey in its context."}
             </p>
+            {canCreate && (
+              <Button size="sm" onClick={onCreate}>
+                <Plus className="h-3.5 w-3.5 mr-1" />Create First Survey
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
