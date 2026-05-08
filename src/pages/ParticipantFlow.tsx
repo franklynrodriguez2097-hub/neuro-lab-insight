@@ -219,6 +219,11 @@ export default function ParticipantFlow() {
           <div className="text-center mb-6">
             <p className="text-xs text-muted-foreground font-mono">{study.code}</p>
             <p className="text-sm font-medium text-foreground/80">{study.title}</p>
+            {resolvedCondition && (
+              <p className="text-[11px] text-muted-foreground/70 mt-1">
+                Condition: <span className="font-medium">{resolvedCondition.name}</span>
+              </p>
+            )}
           </div>
         )}
 
