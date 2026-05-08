@@ -8,7 +8,7 @@ import {
   updateStudy,
   type StudyInput,
 } from "@/services/studies";
-import { fetchSurveysByStudy, fetchAllSurveys, fetchSurveyWithQuestions } from "@/services/surveys";
+import { fetchSurveysByStudy, fetchAllSurveys, fetchSurveyWithQuestions, createSurvey, type CreateSurveyInput } from "@/services/surveys";
 import { MOCK_STUDIES } from "@/data/studies";
 import { MOCK_SURVEYS } from "@/data/surveys";
 import { MOCK_STIMULI } from "@/data/stimuli";
@@ -163,6 +163,17 @@ export function useUpdateStudy() {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["studies"] });
       qc.invalidateQueries({ queryKey: ["study", vars.id] });
+    },
+  });
+}
+
+export function useCreateSurvey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateSurveyInput) => createSurvey(input),
+    onSuccess: (_id, vars) => {
+      qc.invalidateQueries({ queryKey: ["surveys", "all"] });
+      qc.invalidateQueries({ queryKey: ["surveys", "byStudy", vars.studyId] });
     },
   });
 }

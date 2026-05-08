@@ -3,6 +3,38 @@ import { mapSurveyRow, mapQuestionRow } from "./mappers";
 import type { Survey, SurveyQuestion } from "@/data/surveys";
 import { isUuid } from "@/lib/ids";
 
+export interface CreateSurveyInput {
+  studyId: string;
+  title: string;
+  description?: string;
+}
+
+/**
+ * Create a new survey row linked to the given study. Returns the new survey id.
+ * Does not insert any questions — those are added via the editor + saveSurvey.
+ */
+export async function createSurvey(input: CreateSurveyInput): Promise<string> {
+  if (!isUuid(input.studyId)) {
+    throw new Error("Cannot create a survey under a mock-only study. Save the study to the database first.");
+  }
+  const title = input.title.trim();
+  if (!title) throw new Error("Survey title is required.");
+
+  const { data, error } = await supabase
+    .from("surveys")
+    .insert({
+      study_id: input.studyId,
+      title,
+      description: input.description?.trim() || "",
+      status: "draft",
+    })
+    .select("id")
+    .single();
+
+  if (error) throw error;
+  return data.id;
+}
+
 export async function fetchSurveysByStudy(studyId: string): Promise<Survey[]> {
   if (!isUuid(studyId)) return [];
   const { data: rows, error } = await supabase
