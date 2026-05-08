@@ -19,6 +19,9 @@ import {
 } from "@/components/ui/select";
 import { FlaskConical, ArrowRight, ArrowLeft, CheckCircle2, Eye, Loader2, AlertTriangle } from "lucide-react";
 import type { SurveyQuestion } from "@/data/surveys";
+import { createSession, submitAnswers, completeSession } from "@/services/sessions";
+import { isUuid } from "@/lib/ids";
+import { toast } from "@/hooks/use-toast";
 
 type FlowStep =
   | "select-survey"
@@ -79,6 +82,28 @@ export default function ParticipantFlow() {
   const [consentGiven, setConsentGiven] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [responses, setResponses] = useState<Record<string, ResponseDraft>>({});
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Pick first study condition by default; allow URL override.
+  const conditionIdParam = searchParams.get("conditionId");
+  const resolvedConditionId = useMemo(() => {
+    if (conditionIdParam && isUuid(conditionIdParam)) return conditionIdParam;
+    const first = study?.conditions?.[0];
+    return first && isUuid(first.id) ? first.id : null;
+  }, [conditionIdParam, study]);
+  const resolvedCondition = useMemo(
+    () => study?.conditions?.find((c) => c.id === resolvedConditionId) ?? null,
+    [study, resolvedConditionId],
+  );
+
+  // Whether real writes are possible (not preview, real UUIDs available).
+  const canPersist =
+    !isPreview &&
+    isUuid(study?.id) &&
+    isUuid(survey?.id) &&
+    isUuid(resolvedConditionId);
 
   const questions = survey?.questions ?? [];
   const currentQuestion = questions[currentQuestionIndex];
@@ -194,6 +219,11 @@ export default function ParticipantFlow() {
           <div className="text-center mb-6">
             <p className="text-xs text-muted-foreground font-mono">{study.code}</p>
             <p className="text-sm font-medium text-foreground/80">{study.title}</p>
+            {resolvedCondition && (
+              <p className="text-[11px] text-muted-foreground/70 mt-1">
+                Condition: <span className="font-medium">{resolvedCondition.name}</span>
+              </p>
+            )}
           </div>
         )}
 
@@ -313,10 +343,53 @@ export default function ParticipantFlow() {
                 <Button variant="outline" onClick={() => setStep(isPreview ? "consent" : "identify")} className="flex-1">
                   <ArrowLeft className="h-4 w-4 mr-1" />Back
                 </Button>
-                <Button onClick={() => { setCurrentQuestionIndex(0); setStep("question"); }} disabled={questions.length === 0} className="flex-1">
-                  Start Survey <ArrowRight className="h-4 w-4 ml-1" />
+                <Button
+                  onClick={async () => {
+                    setSubmitError(null);
+                    if (canPersist && !sessionId) {
+                      try {
+                        setSubmitting(true);
+                        const id = await createSession({
+                          studyId: study!.id,
+                          surveyId: survey!.id,
+                          conditionId: resolvedConditionId!,
+                          participantCode: participantCode.trim(),
+                        });
+                        setSessionId(id);
+                      } catch (e: any) {
+                        setSubmitError(e?.message ?? "Failed to start session");
+                        toast({
+                          title: "Could not start session",
+                          description: e?.message ?? "Please try again.",
+                          variant: "destructive",
+                        });
+                        setSubmitting(false);
+                        return;
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }
+                    setCurrentQuestionIndex(0);
+                    setStep("question");
+                  }}
+                  disabled={questions.length === 0 || submitting}
+                  className="flex-1"
+                >
+                  {submitting ? (
+                    <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Starting…</>
+                  ) : (
+                    <>Start Survey <ArrowRight className="h-4 w-4 ml-1" /></>
+                  )}
                 </Button>
               </div>
+              {submitError && (
+                <p className="text-xs text-destructive text-center">{submitError}</p>
+              )}
+              {!isPreview && !canPersist && (
+                <p className="text-[11px] text-muted-foreground/70 text-center">
+                  Responses cannot be stored — study, survey, or condition is mock-only.
+                </p>
+              )}
               {questions.length === 0 && (
                 <p className="text-xs text-muted-foreground/60 text-center">This survey has no questions yet.</p>
               )}
@@ -456,10 +529,45 @@ export default function ParticipantFlow() {
                 <Button variant="outline" onClick={() => { setCurrentQuestionIndex(questions.length - 1); setStep("question"); }} className="flex-1">
                   <ArrowLeft className="h-4 w-4 mr-1" />Go Back
                 </Button>
-                <Button onClick={() => setStep("complete")} className="flex-1">
-                  {isPreview ? "End Preview" : "Submit Responses"}
+                <Button
+                  onClick={async () => {
+                    setSubmitError(null);
+                    if (!canPersist || !sessionId) {
+                      setStep("complete");
+                      return;
+                    }
+                    try {
+                      setSubmitting(true);
+                      await submitAnswers({
+                        sessionId,
+                        conditionId: resolvedConditionId!,
+                        questions,
+                        answers: responses,
+                      });
+                      await completeSession(sessionId);
+                      setStep("complete");
+                    } catch (e: any) {
+                      setSubmitError(e?.message ?? "Failed to submit responses");
+                      toast({
+                        title: "Could not submit responses",
+                        description: e?.message ?? "Please try again.",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                  disabled={submitting}
+                  className="flex-1"
+                >
+                  {submitting ? (
+                    <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Submitting…</>
+                  ) : isPreview ? "End Preview" : "Submit Responses"}
                 </Button>
               </div>
+              {submitError && (
+                <p className="text-xs text-destructive text-center">{submitError}</p>
+              )}
             </CardContent>
           </Card>
         )}
