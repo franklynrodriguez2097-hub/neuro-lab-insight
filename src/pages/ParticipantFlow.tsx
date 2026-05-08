@@ -338,10 +338,53 @@ export default function ParticipantFlow() {
                 <Button variant="outline" onClick={() => setStep(isPreview ? "consent" : "identify")} className="flex-1">
                   <ArrowLeft className="h-4 w-4 mr-1" />Back
                 </Button>
-                <Button onClick={() => { setCurrentQuestionIndex(0); setStep("question"); }} disabled={questions.length === 0} className="flex-1">
-                  Start Survey <ArrowRight className="h-4 w-4 ml-1" />
+                <Button
+                  onClick={async () => {
+                    setSubmitError(null);
+                    if (canPersist && !sessionId) {
+                      try {
+                        setSubmitting(true);
+                        const id = await createSession({
+                          studyId: study!.id,
+                          surveyId: survey!.id,
+                          conditionId: resolvedConditionId!,
+                          participantCode: participantCode.trim(),
+                        });
+                        setSessionId(id);
+                      } catch (e: any) {
+                        setSubmitError(e?.message ?? "Failed to start session");
+                        toast({
+                          title: "Could not start session",
+                          description: e?.message ?? "Please try again.",
+                          variant: "destructive",
+                        });
+                        setSubmitting(false);
+                        return;
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }
+                    setCurrentQuestionIndex(0);
+                    setStep("question");
+                  }}
+                  disabled={questions.length === 0 || submitting}
+                  className="flex-1"
+                >
+                  {submitting ? (
+                    <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Starting…</>
+                  ) : (
+                    <>Start Survey <ArrowRight className="h-4 w-4 ml-1" /></>
+                  )}
                 </Button>
               </div>
+              {submitError && (
+                <p className="text-xs text-destructive text-center">{submitError}</p>
+              )}
+              {!isPreview && !canPersist && (
+                <p className="text-[11px] text-muted-foreground/70 text-center">
+                  Responses cannot be stored — study, survey, or condition is mock-only.
+                </p>
+              )}
               {questions.length === 0 && (
                 <p className="text-xs text-muted-foreground/60 text-center">This survey has no questions yet.</p>
               )}
