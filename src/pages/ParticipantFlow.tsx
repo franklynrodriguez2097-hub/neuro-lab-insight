@@ -19,6 +19,9 @@ import {
 } from "@/components/ui/select";
 import { FlaskConical, ArrowRight, ArrowLeft, CheckCircle2, Eye, Loader2, AlertTriangle } from "lucide-react";
 import type { SurveyQuestion } from "@/data/surveys";
+import { createSession, submitAnswers, completeSession } from "@/services/sessions";
+import { isUuid } from "@/lib/ids";
+import { toast } from "@/hooks/use-toast";
 
 type FlowStep =
   | "select-survey"
