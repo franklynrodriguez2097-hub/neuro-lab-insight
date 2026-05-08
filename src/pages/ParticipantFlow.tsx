@@ -565,6 +565,9 @@ export default function ParticipantFlow() {
                   ) : isPreview ? "End Preview" : "Submit Responses"}
                 </Button>
               </div>
+              {submitError && (
+                <p className="text-xs text-destructive text-center">{submitError}</p>
+              )}
             </CardContent>
           </Card>
         )}
