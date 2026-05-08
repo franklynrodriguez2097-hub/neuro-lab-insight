@@ -167,3 +167,14 @@ export function useUpdateStudy() {
   });
 }
 
+export function useCreateSurvey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateSurveyInput) => createSurvey(input),
+    onSuccess: (_id, vars) => {
+      qc.invalidateQueries({ queryKey: ["surveys", "all"] });
+      qc.invalidateQueries({ queryKey: ["surveys", "byStudy", vars.studyId] });
+    },
+  });
+}
+
