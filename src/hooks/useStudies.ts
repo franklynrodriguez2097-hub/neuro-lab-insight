@@ -13,6 +13,7 @@ import { MOCK_STUDIES } from "@/data/studies";
 import { MOCK_SURVEYS } from "@/data/surveys";
 import { MOCK_STIMULI } from "@/data/stimuli";
 import { MOCK_SESSIONS } from "@/data/participants";
+import { fetchStudyAnalytics } from "@/services/analytics";
 
 /**
  * Tracks per-query-key whether the most recent successful load came from the
@@ -141,6 +142,19 @@ export function useSessionsByStudy(studyId: string | undefined) {
   return useQuery({
     queryKey: ["sessions", "byStudy", studyId],
     queryFn: () => MOCK_SESSIONS.filter((s) => s.studyId === studyId),
+    enabled: !!studyId,
+  });
+}
+
+export function useStudyAnalytics(studyId: string | undefined) {
+  return useQuery({
+    queryKey: ["analytics", "byStudy", studyId],
+    queryFn: async () => {
+      if (!studyId) throw new Error("Missing studyId");
+      const data = await fetchStudyAnalytics(studyId);
+      setSource(`analytics:${studyId}`, "db");
+      return data;
+    },
     enabled: !!studyId,
   });
 }
