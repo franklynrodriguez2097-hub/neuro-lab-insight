@@ -146,6 +146,19 @@ export function useSessionsByStudy(studyId: string | undefined) {
   });
 }
 
+export function useStudyAnalytics(studyId: string | undefined) {
+  return useQuery({
+    queryKey: ["analytics", "byStudy", studyId],
+    queryFn: async () => {
+      if (!studyId) throw new Error("Missing studyId");
+      const data = await fetchStudyAnalytics(studyId);
+      setSource(`analytics:${studyId}`, "db");
+      return data;
+    },
+    enabled: !!studyId,
+  });
+}
+
 export function useCreateStudy() {
   const qc = useQueryClient();
   return useMutation({
