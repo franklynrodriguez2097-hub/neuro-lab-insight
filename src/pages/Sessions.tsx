@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MOCK_SESSIONS } from "@/data/participants";
-import { MOCK_STUDIES } from "@/data/studies";
+import { useAllSessions, useStudies } from "@/hooks/useStudies";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -12,19 +12,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Users } from "lucide-react";
+import { Search, Users, AlertCircle } from "lucide-react";
 
 export default function Sessions() {
+  const [searchParams] = useSearchParams();
+  const initialStudy = searchParams.get("studyId") ?? "all";
+
   const [search, setSearch] = useState("");
-  const [studyFilter, setStudyFilter] = useState("all");
+  const [studyFilter, setStudyFilter] = useState(initialStudy);
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const filtered = MOCK_SESSIONS.filter((s) => {
-    const matchSearch = s.participantCode.toLowerCase().includes(search.toLowerCase());
-    const matchStudy = studyFilter === "all" || s.studyId === studyFilter;
-    const matchStatus = statusFilter === "all" || s.status === statusFilter;
-    return matchSearch && matchStudy && matchStatus;
-  });
+  const { data: sessions, isLoading, error } = useAllSessions();
+  const { data: studies } = useStudies();
+
+  const filtered = useMemo(() => {
+    if (!sessions) return [];
+    const q = search.trim().toLowerCase();
+    return sessions.filter((s) => {
+      const matchSearch = !q || s.participantCode.toLowerCase().includes(q);
+      const matchStudy = studyFilter === "all" || s.studyId === studyFilter;
+      const matchStatus = statusFilter === "all" || s.status === statusFilter;
+      return matchSearch && matchStudy && matchStatus;
+    });
+  }, [sessions, search, studyFilter, statusFilter]);
 
   return (
     <AppLayout>
@@ -37,13 +47,20 @@ export default function Sessions() {
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search by participant code…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <Input
+              placeholder="Search by participant code…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
           </div>
           <Select value={studyFilter} onValueChange={setStudyFilter}>
             <SelectTrigger className="w-48 h-10"><SelectValue placeholder="Study" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All studies</SelectItem>
-              {MOCK_STUDIES.map((s) => <SelectItem key={s.id} value={s.id}>{s.code}</SelectItem>)}
+              {studies?.map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.code}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -57,10 +74,26 @@ export default function Sessions() {
           </Select>
         </div>
 
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        ) : error ? (
+          <div className="text-center py-16 border border-destructive/30 rounded-md bg-destructive/5">
+            <AlertCircle className="h-10 w-10 mx-auto text-destructive/70 mb-3" />
+            <p className="text-destructive font-medium">Failed to load sessions.</p>
+            <p className="text-sm text-muted-foreground mt-1">{(error as Error).message}</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <Users className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-            <p className="text-muted-foreground">No sessions found.</p>
+            <p className="text-muted-foreground">
+              {sessions && sessions.length === 0
+                ? "No participant sessions recorded yet."
+                : "No sessions match the current filters."}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -69,28 +102,31 @@ export default function Sessions() {
                 <tr className="border-b border-border text-left">
                   <th className="py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Code</th>
                   <th className="py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Study</th>
+                  <th className="py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Survey</th>
                   <th className="py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Condition</th>
                   <th className="py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
                   <th className="py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Responses</th>
                   <th className="py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Started</th>
+                  <th className="py-3 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Completed</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((session) => {
-                  const study = MOCK_STUDIES.find((s) => s.id === session.studyId);
-                  return (
-                    <tr key={session.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-                      <td className="py-3 px-3 font-mono text-xs">{session.participantCode}</td>
-                      <td className="py-3 px-3 text-xs">{study?.code}</td>
-                      <td className="py-3 px-3 text-xs">{session.conditionLabel}</td>
-                      <td className="py-3 px-3"><StatusBadge status={session.status} /></td>
-                      <td className="py-3 px-3 text-xs">{session.responses.length}</td>
-                      <td className="py-3 px-3 text-xs text-muted-foreground">
-                        {new Date(session.startedAt).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {filtered.map((session) => (
+                  <tr key={session.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
+                    <td className="py-3 px-3 font-mono text-xs">{session.participantCode}</td>
+                    <td className="py-3 px-3 text-xs">{session.studyCode}</td>
+                    <td className="py-3 px-3 text-xs text-muted-foreground">{session.surveyTitle}</td>
+                    <td className="py-3 px-3 text-xs">{session.conditionLabel}</td>
+                    <td className="py-3 px-3"><StatusBadge status={session.status} /></td>
+                    <td className="py-3 px-3 text-xs">{session.responseCount}</td>
+                    <td className="py-3 px-3 text-xs text-muted-foreground">
+                      {new Date(session.startedAt).toLocaleString()}
+                    </td>
+                    <td className="py-3 px-3 text-xs text-muted-foreground">
+                      {session.completedAt ? new Date(session.completedAt).toLocaleString() : "—"}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

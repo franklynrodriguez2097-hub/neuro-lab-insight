@@ -12,8 +12,8 @@ import { fetchSurveysByStudy, fetchAllSurveys, fetchSurveyWithQuestions, createS
 import { MOCK_STUDIES } from "@/data/studies";
 import { MOCK_SURVEYS } from "@/data/surveys";
 import { MOCK_STIMULI } from "@/data/stimuli";
-import { MOCK_SESSIONS } from "@/data/participants";
 import { fetchStudyAnalytics } from "@/services/analytics";
+import { fetchSessions } from "@/services/sessionsRead";
 
 /**
  * Tracks per-query-key whether the most recent successful load came from the
@@ -141,8 +141,23 @@ export function useStimuliByStudy(studyId: string | undefined) {
 export function useSessionsByStudy(studyId: string | undefined) {
   return useQuery({
     queryKey: ["sessions", "byStudy", studyId],
-    queryFn: () => MOCK_SESSIONS.filter((s) => s.studyId === studyId),
+    queryFn: async () => {
+      const rows = await fetchSessions(studyId);
+      setSource(`sessions:${studyId ?? "all"}`, "db");
+      return rows;
+    },
     enabled: !!studyId,
+  });
+}
+
+export function useAllSessions() {
+  return useQuery({
+    queryKey: ["sessions", "all"],
+    queryFn: async () => {
+      const rows = await fetchSessions();
+      setSource("sessions:all", "db");
+      return rows;
+    },
   });
 }
 
