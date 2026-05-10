@@ -13,6 +13,7 @@ import { MOCK_STUDIES } from "@/data/studies";
 import { MOCK_SURVEYS } from "@/data/surveys";
 import { MOCK_STIMULI } from "@/data/stimuli";
 import { MOCK_SESSIONS } from "@/data/participants";
+import { fetchStudyAnalytics } from "@/services/analytics";
 
 /**
  * Tracks per-query-key whether the most recent successful load came from the
